@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "UpL7lHMfGg6q7jVgZgXhw"
+uri = "file://docs/moviebox-api.md"
+type = "text"
+title = "MovieBox API — Complete Documentation"
