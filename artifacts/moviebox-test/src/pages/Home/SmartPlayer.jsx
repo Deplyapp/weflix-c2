@@ -315,7 +315,7 @@ function buildVideoSources(streamList, proxyBase, forceProxy) {
     return qa - qb;
   });
   const useProxy = forceProxy || false;
-  return sorted.map((s) => {
+  const built = sorted.map((s) => {
     const q = parseInt(s.quality || s.resolutions || s.resolution || 720, 10);
     let src;
     if (useProxy && proxyBase) {
@@ -330,6 +330,13 @@ function buildVideoSources(streamList, proxyBase, forceProxy) {
       height: q,
     };
   }).filter((s) => s.src);
+  // Vidstack's DefaultLayout hides the Quality submenu when only a single
+  // quality is registered. Duplicate the lone source so the user can still see
+  // the current quality (e.g. "720p") in the built-in settings menu.
+  if (built.length === 1) {
+    built.push({ ...built[0] });
+  }
+  return built;
 }
 
 function Mp4VidstackPlayer({ streams, proxyBase, languages, dubs, currentSubjectId, season, episode, onError, onLanguageLoading, onReady, onLanguageChange, preferredLang, title, year, type, subtitles, onControlsVisibilityChange }) {
