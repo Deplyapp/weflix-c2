@@ -199,16 +199,20 @@ html, body {
   height: 100vh !important;
 }
 
+/* Generous bottom padding ensures the Vidstack control bar (scrubber +
+   play/pause + fullscreen) is always fully visible, even when the player
+   container's 100dvh is taller than the actually visible viewport on
+   Android/iOS WebViews (a common cause of "half-cut controls"). */
 .smart-player-fill [data-media-player] [data-media-controls] {
-  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
-  padding-left: max(0.5rem, env(safe-area-inset-left, 0px)) !important;
-  padding-right: max(0.5rem, env(safe-area-inset-right, 0px)) !important;
+  padding-bottom: max(2.75rem, env(safe-area-inset-bottom, 0px)) !important;
+  padding-left: max(0.75rem, env(safe-area-inset-left, 0px)) !important;
+  padding-right: max(0.75rem, env(safe-area-inset-right, 0px)) !important;
   box-sizing: border-box !important;
 }
 
 :fullscreen .smart-player-fill [data-media-player] [data-media-controls],
 :-webkit-full-screen .smart-player-fill [data-media-player] [data-media-controls] {
-  padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px)) !important;
   padding-left: max(0.75rem, env(safe-area-inset-left, 0px)) !important;
   padding-right: max(0.75rem, env(safe-area-inset-right, 0px)) !important;
 }
