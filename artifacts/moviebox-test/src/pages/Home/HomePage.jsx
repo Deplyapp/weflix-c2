@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toDetailPath } from './urlUtils';
@@ -6,20 +6,9 @@ import HeroBanner from './HeroBanner';
 import TrendingRow from './TrendingRow';
 import ContinueWatchingRow from './ContinueWatchingRow';
 import SEO from './SEO';
-import { fetchHome, normalizeHomeSection, fetchMbGenre } from './Fetcher';
+import { fetchHome, normalizeHomeSection } from './Fetcher';
 
-const GENRE_QUERIES = [
-  { title: 'Action & Thriller', query: 'action' },
-  { title: 'Comedy', query: 'comedy' },
-  { title: 'Horror & Suspense', query: 'horror' },
-  { title: 'Romance', query: 'romance' },
-  { title: 'Sci-Fi & Fantasy', query: 'sci-fi' },
-  { title: 'Drama', query: 'drama' },
-  { title: 'Animation', query: 'animation' },
-  { title: 'Crime & Mystery', query: 'crime' },
-  { title: 'Adventure', query: 'adventure' },
-  { title: 'Documentary', query: 'documentary' },
-];
+const MAX_HOME_ROWS = 3;
 
 const SectionDivider = ({ label }) => (
   <div className="flex items-center gap-4 px-4 sm:px-6 mb-8 mt-4">
@@ -46,9 +35,6 @@ export default function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sections, setSections] = useState([]);
-  const [genreSections, setGenreSections] = useState([]);
-  const [genresLoading, setGenresLoading] = useState(true);
-  const genresFetchedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,37 +52,10 @@ export default function HomePage() {
             title: sec.title || sec.name || 'Featured',
             items: normalizeHomeSection(sec),
           }))
-          .filter((s) => s.items.length > 0);
+          .filter((s) => s.items.length > 0)
+          .slice(0, MAX_HOME_ROWS);
         setSections(parsed);
       } catch { /* ignore */ }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    if (genresFetchedRef.current) return;
-    genresFetchedRef.current = true;
-    let cancelled = false;
-
-    (async () => {
-      const accumulated = [];
-      const batchSize = 3;
-      for (let i = 0; i < GENRE_QUERIES.length; i += batchSize) {
-        const batch = GENRE_QUERIES.slice(i, i + batchSize);
-        const batchResults = await Promise.allSettled(
-          batch.map(g => fetchMbGenre(g.query))
-        );
-        for (let j = 0; j < batch.length; j++) {
-          const r = batchResults[j];
-          if (r.status === 'fulfilled' && r.value.length > 0) {
-            accumulated.push({ title: batch[j].title, items: r.value });
-          }
-        }
-        if (cancelled) return;
-        setGenreSections([...accumulated]);
-        if (accumulated.length > 0) setGenresLoading(false);
-      }
-      if (!cancelled) setGenresLoading(false);
     })();
     return () => { cancelled = true; };
   }, []);
@@ -122,48 +81,12 @@ export default function HomePage() {
 
   const ACCENT_COLORS = ['#ef4444', '#8b5cf6', '#f59e0b', '#10b981', '#3b82f6', '#f97316', '#ec4899', '#14b8a6', '#a855f7', '#f43f5e'];
 
-  const allSections = [];
-  let genreCursor = 0;
-  let genreDividerShown = false;
-
-  for (let idx = 0; idx < sections.length; idx++) {
-    allSections.push({
-      ...sections[idx],
-      showRank: idx === 0,
-      accent: ACCENT_COLORS[idx % ACCENT_COLORS.length],
-      key: `home-${idx}`,
-    });
-
-    if (idx > 0 && idx % 2 === 1 && genreCursor < genreSections.length) {
-      if (!genreDividerShown) {
-        allSections.push({ isDividerOnly: true, key: `genre-divider` });
-        genreDividerShown = true;
-      }
-      const gs = genreSections[genreCursor];
-      allSections.push({
-        ...gs,
-        showRank: false,
-        accent: ACCENT_COLORS[(sections.length + genreCursor) % ACCENT_COLORS.length],
-        key: `genre-${genreCursor}`,
-      });
-      genreCursor++;
-    }
-  }
-
-  while (genreCursor < genreSections.length) {
-    if (!genreDividerShown) {
-      allSections.push({ isDividerOnly: true, key: `genre-divider` });
-      genreDividerShown = true;
-    }
-    const gs = genreSections[genreCursor];
-    allSections.push({
-      ...gs,
-      showRank: false,
-      accent: ACCENT_COLORS[(sections.length + genreCursor) % ACCENT_COLORS.length],
-      key: `genre-${genreCursor}`,
-    });
-    genreCursor++;
-  }
+  const allSections = sections.map((s, idx) => ({
+    ...s,
+    showRank: idx === 0,
+    accent: ACCENT_COLORS[idx % ACCENT_COLORS.length],
+    key: `home-${idx}`,
+  }));
 
   return (
     <motion.div
@@ -182,35 +105,20 @@ export default function HomePage() {
       <div className="pt-10 pb-8">
         <ContinueWatchingRow onSelect={handleContinueSelect} />
 
-        {allSections.map((sec, idx) => {
-          if (sec.isDividerOnly) return <SectionDivider key={sec.key} label="Browse by Genre" />;
-          return (
-            <div key={sec.key}>
-              {idx > 0 && idx % 5 === 0 && !sec.isDividerOnly && <SectionDivider label="More to Watch" />}
-              <TrendingRow
-                title={sec.title}
-                items={sec.items}
-                showRank={sec.showRank}
-                accent={sec.accent}
-                onSelect={handleSelect}
-                onSeeAll={goSearch}
-              />
-            </div>
-          );
-        })}
-
-        {genresLoading && sections.length > 0 && (
-          <>
-            <SectionDivider label="Browse by Genre" />
-            <RowSkeleton />
-            <RowSkeleton />
-            <RowSkeleton />
-          </>
-        )}
+        {allSections.map((sec) => (
+          <TrendingRow
+            key={sec.key}
+            title={sec.title}
+            items={sec.items}
+            showRank={sec.showRank}
+            accent={sec.accent}
+            onSelect={handleSelect}
+            onSeeAll={goSearch}
+          />
+        ))}
 
         {sections.length === 0 && (
           <>
-            <RowSkeleton />
             <RowSkeleton />
             <RowSkeleton />
             <RowSkeleton />
