@@ -174,7 +174,9 @@ function PlayerOverlayControls({ subtitles, allDubs, allLanguages, langProbing, 
   const hasAudio = allDubs.length > 0 || allLanguages.length > 0 || langProbing;
   // In fullscreen, browser hides system UI so safe-area insets become 0 — use plain offset
   // to avoid the visible jump of the buttons during FS enter/exit.
-  const bottomOffset = isFs ? '4.5rem' : 'calc(4.5rem + env(safe-area-inset-bottom, 0px))';
+  // 6.5rem (~104px) sits comfortably above Vidstack's default control bar
+  // (~80px tall) so the scrubber/play button never overlap our pills.
+  const bottomOffset = isFs ? '6.5rem' : 'calc(6.5rem + env(safe-area-inset-bottom, 0px))';
   const sideOffset = isFs ? '0.75rem' : 'calc(0.75rem + env(safe-area-inset-left, 0px))';
   const sideOffsetR = isFs ? '0.75rem' : 'calc(0.75rem + env(safe-area-inset-right, 0px))';
   const baseStyle = {
