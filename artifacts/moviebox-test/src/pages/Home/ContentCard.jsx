@@ -63,15 +63,15 @@ const ContentCard = memo(({
 
   return (
     <div
-      className={`group relative w-full cursor-pointer z-10 card-hover-lift ${className}`}
+      className={`group relative w-full h-full cursor-pointer z-10 card-hover-lift ${className}`}
       onClick={onClick}
       role="button"
       tabIndex={0}
       onKeyPress={handleKeyPress}
       aria-label={`${title}${year ? ` (${year})` : ''}`}
     >
-      <div className="w-full rounded-xl overflow-hidden ring-1 ring-white/5 group-hover:ring-white/20 group-hover:shadow-2xl group-hover:shadow-black/60 relative flex flex-col z-20 bg-[#0d1117] transition-shadow duration-200">
-        <div className="relative w-full aspect-[2/3] bg-[#111827]">
+      <div className="w-full h-full rounded-xl overflow-hidden ring-1 ring-white/5 group-hover:ring-white/20 group-hover:shadow-2xl group-hover:shadow-black/60 relative flex flex-col z-20 bg-[#0d1117] transition-shadow duration-200">
+        <div className="relative w-full flex-1 min-h-0 bg-[#111827] overflow-hidden">
           {!imageLoaded && !imageError && (
             <div className="absolute inset-0 animate-pulse bg-gradient-to-b from-white/5 to-white/[0.02]" />
           )}
