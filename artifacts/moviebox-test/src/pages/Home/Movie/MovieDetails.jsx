@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, memo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import PropTypes from "prop-types";
-import { fetchMbDetail } from "../Fetcher";
+import { fetchMbDetail, mbCoverUrl } from "../Fetcher";
 import { getIdFromDetailSlug, getTitleFromDetailSlug } from "../urlUtils";
 import { saveToContinueWatching } from "../../../utils/continueWatching";
 import {
@@ -21,6 +21,8 @@ import SmartPlayer, { enterFullscreenLandscape, preResolveStream } from "../Smar
 import SEO from "../SEO";
 import AuthModal from "../../../components/AuthModal";
 import { useWatchlist } from "../../../context/WatchlistContext";
+import { useProgressWhile } from "../../../context/ProgressContext";
+// View-transition wiring (Task #115) was reverted — see ContentCard for context.
 
 const MovieDetails = ({ movieId: movieIdProp }) => {
   const { slug } = useParams();
@@ -36,6 +38,8 @@ const MovieDetails = ({ movieId: movieIdProp }) => {
   const [showPlayer, setShowPlayer] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+
+  useProgressWhile(loading);
   const { user, watchlistIds, toggleWatchlist: ctxToggleWatchlist } = useWatchlist();
   const inWatchlist = movie?.subjectId ? watchlistIds.has(String(movie.subjectId)) : false;
 
@@ -50,11 +54,14 @@ const MovieDetails = ({ movieId: movieIdProp }) => {
   }, [movieId]);
 
   const handleBack = () => {
-    if (location.state?.from) {
-      navigate(location.state.from);
-      return;
-    }
-    navigate(-1);
+    const go = () => {
+      if (location.state?.from) {
+        navigate(location.state.from);
+        return;
+      }
+      navigate(-1);
+    };
+    go();
   };
 
   const load = useCallback(async () => {
@@ -143,7 +150,7 @@ const MovieDetails = ({ movieId: movieIdProp }) => {
   const truncated = overview.length > 280 && !showOverview
     ? overview.slice(0, 280) + "..."
     : overview;
-  const coverUrl = movie.cover?.url || '';
+  const coverUrl = mbCoverUrl(movie.cover, 1280) || '';
   const duration = movie.duration || '';
   const staffList = movie.staffList || [];
   const cast = staffList.filter(s => s.staffType === 2 || s.type === 'cast' || s.type === 'actor' || !s.type).slice(0, 20).map(s => ({
@@ -169,7 +176,9 @@ const MovieDetails = ({ movieId: movieIdProp }) => {
               src={coverUrl}
               alt=""
               className="w-full h-full object-cover object-top"
-              style={{ filter: "brightness(0.45) contrast(1.1) saturate(1.1)" }}
+              style={{
+                filter: "brightness(0.45) contrast(1.1) saturate(1.1)",
+              }}
             />
           ) : (
             <div className="w-full h-full bg-[#141414]" />

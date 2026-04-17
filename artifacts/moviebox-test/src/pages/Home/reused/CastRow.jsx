@@ -1,5 +1,6 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { FaUser } from 'react-icons/fa';
+import { mbCoverUrl } from '../Fetcher';
 
 export default function CastRow({ cast }) {
   const listRef = useRef(null);
@@ -55,7 +56,7 @@ export default function CastRow({ cast }) {
           className={`flex gap-4 md:gap-5 overflow-x-auto hide-scrollbar px-4 pt-6 pb-6 -mx-4 -mt-6 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         >
           {topCast.map((person, i) => {
-            const avatarUrl = person.avatar?.url || person.profile_path || '';
+            const avatarUrl = mbCoverUrl(person.avatar?.url || person.profile_path || '', 140);
             const name = person.name || 'Unknown';
             const character = person.character || person.role || '';
             return (

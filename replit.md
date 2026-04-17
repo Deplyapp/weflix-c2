@@ -36,6 +36,15 @@ All packages are configured as TypeScript composite projects, extending a shared
 
 ## UI/UX and Client Applications
 
+### WeFlix Mobile (WebView shell)
+- Separate Expo artifact at `artifacts/weflix-mobile/` (preview path `/weflix-mobile/`, port 18448).
+- Thin native WebView wrapper around the WeFlix C2 web app (`artifacts/moviebox-test`). All product logic lives in the web app — the shell only provides chrome (status bar, splash, hardware back, pull-to-refresh, offline screen, fullscreen video).
+- **Dev/Prod swap point**: `artifacts/weflix-mobile/constants/config.ts` — flip the `USE_PRODUCTION` boolean. Dev points at `https://${EXPO_PUBLIC_DOMAIN}/`; prod points at `PRODUCTION_URL` (set to `https://weflix.replit.app/` placeholder, edit when the real prod domain is known).
+- Off-host links open in the system browser via `expo-web-browser`. Hardware back on Android navigates WebView history before exiting. Offline state shown via `expo-network` with a Retry that re-checks connectivity and remounts the WebView.
+- WeFlix red `#E50914` on `#0B0B0B` black for splash/status bar; portrait-locked at the app level, fullscreen video uses the WebView's native fullscreen path.
+- Strict isolation: never modify `artifacts/moviebox-test` (c2) when working on this artifact.
+- Replaces the previous `kaizen-mobile` artifact (deleted).
+
 ### WeFlix (Legacy)
 - Served at `/weflix/`.
 - Mobile-first design with a smart header for small screens and a sidebar for desktop.
@@ -57,6 +66,23 @@ All packages are configured as TypeScript composite projects, extending a shared
 - **Detail Pages**: Netflix-style with full-bleed backdrops, tabs for episodes/details/cast, and season/episode selectors for TV series.
 - **Pages**: Home (hero banner, carousels), Movies/Series (search-based grids), Search (infinite scroll), Movie/Tv Details, Watchlist.
 - **SEO**: Integrated via `react-helmet-async`.
+- **Smoothness primitives** (Task #113 polish baseline; all under `src/components/`):
+    - `Skeleton` — shimmering placeholder; used in TrendingRow, ContentCard, HomePage row skeletons, ContentGrid, and DetailPageSkeleton (all ad-hoc `animate-pulse` divs replaced).
+    - `Toast` (`ToastProvider` + `useToast()`) — iOS-style stack mounted in `main.jsx`. Used by `WatchlistContext` (add/remove feedback) and `AuthModal` (sign-in / Google / password-reset success + error). `window.__toast` bridge available for non-React modules.
+    - `BottomSheet` — drag-to-dismiss mobile sheet / desktop modal. `AuthModal` consumes it.
+    - `ScrollToTopButton` — extracted from `ParentComponent`; configurable `showAfter` threshold.
+- **Scroll/image perf baseline** (Task #117):
+    - Native scroll only — no global `scroll-behavior: smooth`. Programmatic `scrollTo({ behavior: 'smooth' })` (e.g. `ScrollToTopButton`, row arrow buttons) still works.
+    - Card classes (`.pcw-card`, `.card-hover-lift`) carry `transition: transform` but **no** always-on `will-change` (avoids per-card layer-explosion).
+    - `content-visibility: auto` was tried on off-screen rows but caused jumpy/stuck scrolling on iOS WebView (the WeFlix mobile shell) and was reverted. The `.row-deferred` class still exists but is a no-op; off-screen-only deferral is on hold until we can gate it behind a non-WebView feature flag.
+    - Eager / `fetchPriority="high"` poster loading is restricted to the first 5 cards of the first row only; everything else is `loading="lazy"`. `<img>` carries intrinsic `width={300} height={450}`.
+    - `HeroBanner` slide-rotation `setInterval` is paused via `IntersectionObserver` when the hero scrolls out of view, and via `visibilitychange` when the tab is hidden.
+    - Route cross-fade is opacity-only (180ms `easeOut`, no `y` translate); `useReducedMotion` still bypasses the animation.
+    - `mbCoverUrl(url, width)` keeps its width param for forward-compat but currently returns the URL unchanged — the MovieBox CDN does not expose a documented resize query string.
+- **Progress + transitions** (Task #113):
+    - `context/ProgressContext` provides `useProgressWhile(loading)` wired into HomePage (`fetchHome` + genre fetch), MovieDetails, TvDetails, and SearchPage so the top bar reflects real fetch lifecycles. `App.jsx`'s lazy-route Suspense fallback also pushes/pops the same counter.
+    - `ContentCard` triggers `document.startViewTransition` with a `poster-{mediaId}` view-transition-name; matching name on the hero `<img>` of MovieDetails / TvDetails morphs the poster into the hero on supporting browsers. Honours `prefers-reduced-motion`.
+    - `ParentComponent` cross-fades routes via `AnimatePresence` + `useNavigationType` for direction-aware transitions.
 
 ## API Server (`api-server`)
 

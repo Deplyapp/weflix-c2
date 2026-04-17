@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { BiChevronLeft, BiChevronRight } from 'react-icons/bi';
 import { FiArrowRight } from 'react-icons/fi';
 import ContentCard from './ContentCard';
+import Skeleton from '../../components/Skeleton';
+import { mbCoverUrl } from './Fetcher';
 
 function useRow(items) {
   const [loading, setLoading] = useState(!items || items.length === 0);
@@ -20,6 +22,7 @@ export default function TrendingRow({
   onSelect,
   onSeeAll,
   accent,
+  priorityRow = false,
 }) {
   const { items, loading } = useRow(propItems);
   const rowRef = useRef(null);
@@ -73,11 +76,15 @@ export default function TrendingRow({
     return (
       <section className="mb-10">
         <div className="flex items-center gap-3 px-4 sm:px-6 mb-5">
-          <div className="w-24 h-5 rounded-md bg-white/[0.06] animate-pulse" />
+          <Skeleton width={96} height={20} />
         </div>
         <div className="flex gap-2 px-4 sm:px-6">
           {Array.from({ length: 9 }).map((_, i) => (
-            <div key={i} className="shrink-0 w-[130px] md:w-[150px] h-[195px] md:h-[225px] rounded-xl bg-white/[0.05] animate-pulse" />
+            <Skeleton
+              key={i}
+              className="shrink-0 w-[130px] md:w-[150px] h-[195px] md:h-[225px]"
+              rounded="rounded-xl"
+            />
           ))}
         </div>
       </section>
@@ -87,7 +94,10 @@ export default function TrendingRow({
   if (!items.length) return null;
 
   return (
-    <section className="mb-10 group/row" style={{ overflow: 'visible' }}>
+    <section
+      className={`mb-10 group/row ${priorityRow ? '' : 'row-deferred'}`}
+      style={{ overflow: 'visible' }}
+    >
       <div className="flex items-center justify-between px-4 sm:px-6 mb-4">
         <div className="flex items-center gap-3">
           {accent && (
@@ -126,15 +136,15 @@ export default function TrendingRow({
         onMouseDown={onRowMouseDown}
         onMouseMove={onRowMouseMove}
         onMouseLeave={endRowDrag}
-        className={`flex gap-2 overflow-x-auto hide-scrollbar px-4 sm:px-6 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-        style={{ paddingTop: 20, paddingBottom: 20, marginTop: -12, marginBottom: -12 }}
+        className={`flex gap-2 overflow-x-auto hide-scrollbar px-4 sm:px-6 select-none snap-x snap-mandatory ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        style={{ paddingTop: 20, paddingBottom: 20, marginTop: -12, marginBottom: -12, scrollPaddingLeft: 16, scrollPaddingRight: 16 }}
       >
         {items.map((item, index) => {
           const mediaType = item.subjectType !== 1 ? 'tv' : 'movie';
           return (
             <div
               key={item.subjectId}
-              className={`shrink-0 relative self-start ${showRank ? 'pt-6 pl-2' : ''}`}
+              className={`shrink-0 relative self-start snap-start ${showRank ? 'pt-6 pl-2' : ''}`}
               style={{ width: showRank ? 165 : 135, minHeight: showRank ? 285 : 250 }}
             >
               {showRank && (
@@ -154,15 +164,16 @@ export default function TrendingRow({
               )}
               <ContentCard
                 title={item.title}
-                poster={item.cover}
+                poster={mbCoverUrl(item.cover, 300)}
                 rating={item.rating ? parseFloat(item.rating) : null}
                 releaseDate={(item.releaseDate || '').slice(0, 4)}
+                mediaId={item.subjectId}
                 onClick={() => {
                   if (suppressClickRef.current) return;
                   onSelect(item, mediaType);
                 }}
                 mediaType={mediaType}
-                priority={index < 6}
+                priority={priorityRow && index < 5}
               />
             </div>
           );

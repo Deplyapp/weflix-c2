@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toDetailPath } from './urlUtils';
 import { FaPlay, FaInfoCircle, FaStar } from 'react-icons/fa';
 import { BiCalendar } from 'react-icons/bi';
-import { fetchHome, normalizeHomeSection } from './Fetcher';
+import { fetchHome, normalizeHomeSection, mbCoverUrl } from './Fetcher';
 
 const INTERVAL = 7000;
 
@@ -109,9 +109,48 @@ export default function HeroBanner() {
   const [barKey, setBarKey] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const navigate = useNavigate();
+  const ioRef = useRef(null);
+  const [inView, setInView] = useState(true);
+  const [docVisible, setDocVisible] = useState(
+    typeof document === 'undefined' ? true : document.visibilityState !== 'hidden'
+  );
 
-  const firstSrc = items.length ? (items[0].backdrop || items[0].cover) : null;
+  const firstSrc = items.length ? mbCoverUrl(items[0].backdrop || items[0].cover, 1280) : null;
   const firstImgReady = useImagePreloader(firstSrc);
+
+  // Callback ref: the hero root only mounts after the skeleton is replaced
+  // (showSkeleton flips to false). A regular useRef + useEffect would miss
+  // that mount because its deps wouldn't change. Attach/detach the
+  // IntersectionObserver as the node itself mounts/unmounts.
+  const setHeroEl = useCallback((node) => {
+    if (ioRef.current) {
+      ioRef.current.disconnect();
+      ioRef.current = null;
+    }
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { rootMargin: '0px', threshold: 0 }
+    );
+    io.observe(node);
+    ioRef.current = io;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (ioRef.current) {
+        ioRef.current.disconnect();
+        ioRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVis = () => setDocVisible(document.visibilityState !== 'hidden');
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
 
   useEffect(() => {
     if (firstImgReady && items.length && !revealed) {
@@ -134,9 +173,12 @@ export default function HeroBanner() {
 
   useEffect(() => {
     if (items.length < 2) return;
+    // Don't run the rotation when the hero is offscreen (user has scrolled
+    // past it) or when the tab is hidden — saves background paint cost.
+    if (!inView || !docVisible) return;
     const id = setInterval(() => goTo(prev => (prev + 1) % items.length), INTERVAL);
     return () => clearInterval(id);
-  }, [items.length, goTo, barKey]);
+  }, [items.length, goTo, barKey, inView, docVisible]);
 
   const showSkeleton = loading || !items.length || !firstImgReady;
 
@@ -150,12 +192,13 @@ export default function HeroBanner() {
   const rating = item.rating || null;
   const overview = (item.description || '').slice(0, 220) + ((item.description || '').length > 220 ? '...' : '');
   const genres = item.genre ? item.genre.split(',').map(g => g.trim()).filter(Boolean).slice(0, 3) : [];
-  const bgSrc = item.backdrop || item.cover;
+  const bgSrc = mbCoverUrl(item.backdrop || item.cover, 1280);
 
   const handlePlay = () => navigate(toDetailPath(isTV ? 'tv' : 'movie', item.subjectId, title));
 
   return (
     <div
+      ref={setHeroEl}
       className="relative w-full h-[80vh] md:h-[90vh] lg:h-screen overflow-hidden bg-black select-none"
       style={{ opacity: revealed ? 1 : 0, transition: 'opacity 0.6s ease-out' }}
     >
@@ -275,7 +318,7 @@ export default function HeroBanner() {
                   : 'ring-white/10 opacity-45 hover:opacity-75'
               }`}
             >
-              <img src={it.cover} loading="lazy" alt="" className="w-full h-full object-cover" />
+              <img src={mbCoverUrl(it.cover, 80)} loading="lazy" alt="" className="w-full h-full object-cover" />
             </button>
           ))}
         </div>

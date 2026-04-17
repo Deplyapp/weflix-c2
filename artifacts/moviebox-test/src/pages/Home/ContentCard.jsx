@@ -1,7 +1,8 @@
-import React, { useState, memo, useCallback } from 'react';
+import React, { useState, memo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { FaPlay, FaStar, FaPlus, FaCheck, FaTrash } from 'react-icons/fa';
 import { useWatchlist } from '../../context/WatchlistContext';
+import Skeleton from '../../components/Skeleton';
 
 const ContentCard = memo(({
   title,
@@ -19,9 +20,20 @@ const ContentCard = memo(({
   isWatchlistPage = false,
   priority = false,
 }) => {
-  const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [wlLoading, setWlLoading] = useState(false);
+  const imgRef = useRef(null);
+
+  // The shared-element view-transition that morphed the poster into the
+  // detail-page hero (Task #115) was reverted because it appeared to
+  // interfere with vertical scroll on the carousel rows on touch devices
+  // (the always-on `view-transition-name` style + claim/subscribe state
+  // created a stacking context per card that swallowed touches). Card
+  // taps now do a plain navigation.
+  const handleCardClick = useCallback(() => {
+    if (onClick) onClick();
+  }, [onClick]);
 
   const { watchlistIds, toggleWatchlist, ready, user, isGuestMode } = useWatchlist();
   const inWatchlist = ready && !!mediaId && watchlistIds.has(String(mediaId));
@@ -52,9 +64,9 @@ const ContentCard = memo(({
   const handleKeyPress = useCallback((e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      onClick?.();
+      handleCardClick();
     }
-  }, [onClick]);
+  }, [handleCardClick]);
 
   const src = imageError ? placeholderImage : poster;
   const year = releaseDate ? (typeof releaseDate === 'string' && releaseDate.length >= 4 ? releaseDate.slice(0, 4) : new Date(releaseDate).getFullYear()) : null;
@@ -64,27 +76,29 @@ const ContentCard = memo(({
 
   return (
     <div
-      className={`group relative w-full cursor-pointer z-10 card-hover-lift ${className}`}
-      onClick={onClick}
+      className={`pcw-card group relative w-full cursor-pointer z-10 ${className}`}
+      onClick={handleCardClick}
       role="button"
       tabIndex={0}
       onKeyPress={handleKeyPress}
       aria-label={`${title}${year ? ` (${year})` : ''}`}
     >
       <div className="w-full rounded-xl overflow-hidden ring-1 ring-white/5 group-hover:ring-white/20 group-hover:shadow-2xl group-hover:shadow-black/60 relative flex flex-col z-20 bg-[#0d1117] transition-shadow duration-200">
-        <div className="relative w-full aspect-[2/3] bg-[#111827] overflow-hidden">
-          {!imageLoaded && !imageError && (
-            <div className="absolute inset-0 animate-pulse bg-gradient-to-b from-white/5 to-white/[0.02]" />
+        <div className="relative w-full aspect-[2/3] bg-[#1a1f2b] overflow-hidden">
+          {!imageLoaded && (
+            <Skeleton className="absolute inset-0" rounded="rounded-none" />
           )}
-
           <img
+            ref={imgRef}
             src={src}
             alt={title}
+            width={300}
+            height={450}
             loading={priority ? 'eager' : 'lazy'}
             decoding="async"
             fetchPriority={priority ? 'high' : 'auto'}
             draggable={false}
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover ${imageLoaded ? 'poster-fade-in' : 'opacity-0'}`}
             onLoad={() => setImageLoaded(true)}
             onError={() => { setImageError(true); setImageLoaded(true); }}
           />

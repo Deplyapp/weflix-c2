@@ -1,16 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { BiUpArrowAlt, BiHomeAlt, BiMoviePlay, BiTv, BiSearch, BiBookmark } from 'react-icons/bi';
+import { useState, useEffect } from 'react';
+import { Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
+import { BiHomeAlt, BiMoviePlay, BiTv, BiSearch, BiBookmark } from 'react-icons/bi';
 import { FaUserCircle, FaSignOutAlt } from 'react-icons/fa';
+import { AnimatePresence, motion, LayoutGroup, useReducedMotion } from 'framer-motion';
 import Sidebar from './Sidebar';
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, firebaseEnabled } from "../../firebase";
 import AuthModal from "../../components/AuthModal";
+import ScrollToTopButton from "../../components/ScrollToTopButton";
+// View-transitions wiring (Task #115) was reverted — see ContentCard for context.
+
 
 function ParentComponent() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [scrollPosition, setScrollPosition] = useState(0);
+  const navType = useNavigationType();
+  const reduceMotion = useReducedMotion();
+  const isBack = navType === 'POP';
+  const skipFramerFade = reduceMotion;
   const [user, setUser] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
@@ -47,22 +54,17 @@ function ParentComponent() {
     : location.pathname.startsWith('/tv/')     ? 'series'
     : 'home';
 
-  const handleScroll = useCallback(() => {
-    setScrollPosition(window.scrollY);
-  }, []);
-  useEffect(() => {
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [handleScroll]);
-
   const selectedGenreId = null;
 
   const handleNavigation = (page) => {
     window.scrollTo({ top: 0, behavior: 'auto' });
-    if (page === 'home')        navigate('/');
-    else if (page === 'movies') navigate('/movies');
-    else if (page === 'series') navigate('/series');
-    else                        navigate(`/${page}`);
+    const go = () => {
+      if (page === 'home')        navigate('/');
+      else if (page === 'movies') navigate('/movies');
+      else if (page === 'series') navigate('/series');
+      else                        navigate(`/${page}`);
+    };
+    go();
   };
 
   const handleGenreSelect = () => {};
@@ -77,19 +79,23 @@ function ParentComponent() {
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
       />
 
-      {scrollPosition > 300 && (
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-4 right-4 z-50 text-white p-3 rounded-full bg-white/10 hover:bg-white/20 shadow-lg hover:scale-110 transition-all duration-300"
-          aria-label="Scroll to Top"
-        >
-          <BiUpArrowAlt className="text-2xl" />
-        </button>
-      )}
+      <ScrollToTopButton showAfter={300} />
 
-      {/* Page content */}
+      {/* Page content — animated route transitions, parent shell stays mounted */}
       <div className="md:pl-[84px] pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
-        <Outlet />
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={location.pathname}
+            initial={skipFramerFade ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={skipFramerFade ? { opacity: 1 } : { opacity: 0 }}
+            transition={skipFramerFade
+              ? { duration: 0 }
+              : { duration: 0.18, ease: 'easeOut' }}
+          >
+            <Outlet />
+          </motion.div>
+        </AnimatePresence>
 
         {/* Footer — home page only */}
         {location.pathname === '/' && <footer className="bg-[#0a0c12]">
@@ -111,6 +117,7 @@ function ParentComponent() {
 
       {/* Mobile bottom navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#070b14] border-t border-white/[0.08] shadow-[0_-10px_30px_rgba(0,0,0,0.55)] flex items-center justify-around px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.45rem)]">
+        <LayoutGroup id="bottom-nav">
         {[
           { id: 'home',   icon: BiHomeAlt,   label: 'Home'    },
           { id: 'movies', icon: BiMoviePlay, label: 'Movies'  },
@@ -120,18 +127,34 @@ function ParentComponent() {
         ].map(({ id, icon: Icon, label }) => {
           const isActive = activePage === id;
           return (
-            <button
+            <motion.button
               key={id}
               onClick={() => handleNavigation(id)}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors ${
+              whileTap={{ scale: 0.85 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 28 }}
+              className={`relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors ${
                 isActive ? 'text-red-400' : 'text-gray-500 hover:text-gray-300'
               }`}
             >
-              <Icon className="text-2xl" />
-              <span className="text-[10px] font-medium">{label}</span>
-            </button>
+              {isActive && (
+                <motion.span
+                  layoutId="bottom-nav-pill"
+                  className="absolute inset-0 rounded-xl bg-red-500/10"
+                  transition={{ type: 'spring', stiffness: 500, damping: 36 }}
+                />
+              )}
+              <motion.span
+                animate={isActive ? { scale: [1, 1.18, 1] } : { scale: 1 }}
+                transition={{ duration: 0.32, ease: 'easeOut' }}
+                className="relative"
+              >
+                <Icon className="text-2xl" />
+              </motion.span>
+              <span className="relative text-[10px] font-medium">{label}</span>
+            </motion.button>
           );
         })}
+        </LayoutGroup>
         {firebaseEnabled && (
           user ? (
             <button

@@ -148,10 +148,27 @@ export async function fetchMbSubtitles(subjectId, title) {
   return [];
 }
 
+// The MovieBox CDN (pbcdnw.aoneroom.com / static-cdnw.aoneroom.com) is
+// backed by Aliyun OSS, which exposes image processing via the
+// `x-oss-process` query string. Asking for `image/resize,w_<N>/format,webp`
+// gives us a right-sized WebP — e.g. a ~1.4 MB JPEG poster shrinks to
+// ~15 KB at w=300. We bump the requested width to ~2x the rendered CSS
+// width so it stays sharp on high-DPI screens.
+const MB_CDN_HOST_RE = /(?:^|\.)aoneroom\.com$/i;
+
 export function mbCoverUrl(cover, width = 300) {
   if (!cover) return null;
-  if (typeof cover === 'string') return cover;
-  return cover.url || null;
+  const raw = typeof cover === 'string' ? cover : cover.url;
+  if (!raw) return null;
+  if (!width) return raw;
+  let u;
+  try { u = new URL(raw); } catch { return raw; }
+  if (!MB_CDN_HOST_RE.test(u.hostname)) return raw;
+  if (u.searchParams.has('x-oss-process')) return raw;
+  const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? Math.min(2, window.devicePixelRatio) : 1;
+  const w = Math.max(1, Math.round(width * dpr));
+  u.searchParams.set('x-oss-process', `image/resize,w_${w}/format,webp`);
+  return u.toString();
 }
 
 export function mbTypeLabel(subjectType) {

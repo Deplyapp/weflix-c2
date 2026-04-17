@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaTimes, FaGoogle, FaEnvelope, FaLock, FaUser, FaSpinner, FaExclamationCircle, FaCheckCircle } from 'react-icons/fa';
 import { BiMoviePlay } from 'react-icons/bi';
+import BottomSheet from './BottomSheet';
+import { useToast } from './Toast';
 import { auth, googleProvider, db, firebaseEnabled } from '../firebase';
 import { 
   createUserWithEmailAndPassword, 
@@ -48,7 +50,21 @@ const saveUserToFirestore = async (user) => {
   }, { merge: true });
 };
 
+function useIsMobile(breakpoint = 640) {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  );
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 export default function AuthModal({ isOpen, onClose }) {
+  const isMobile = useIsMobile();
+  const toast = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -81,8 +97,11 @@ export default function AuthModal({ isOpen, onClose }) {
     try {
       await sendPasswordResetEmail(auth, resetEmail.trim());
       setResetSent(true);
+      toast.success('Password reset email sent. Check your inbox.');
     } catch (err) {
-      setError(getFirebaseError(err));
+      const msg = getFirebaseError(err);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -121,9 +140,12 @@ export default function AuthModal({ isOpen, onClose }) {
         setVerificationSent(true);
         return;
       }
+      toast.success(`Welcome back${name ? `, ${name}` : ''}!`);
       onClose();
     } catch (err) {
-      setError(getFirebaseError(err));
+      const msg = getFirebaseError(err);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -135,37 +157,20 @@ export default function AuthModal({ isOpen, onClose }) {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       saveUserToFirestore(result.user).catch(console.error);
+      toast.success(`Signed in as ${result.user.displayName || result.user.email}`);
       onClose();
     } catch (err) {
-      setError(err.message.replace('Firebase:', '').trim());
+      const msg = err.message.replace('Firebase:', '').trim();
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <React.Fragment>
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm"
-          />
-
-          {/* Modal Container */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 30 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="w-full max-w-[400px] bg-[#0b0f19]/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl shadow-black overflow-hidden pointer-events-auto"
-            >
-              <div className="p-8">
+    <BottomSheet isOpen={isOpen} onClose={onClose} ariaLabel="Sign in or create account">
+      <div className={isMobile ? 'px-6 pt-2 pb-6' : 'p-8'}>
                 {/* Header */}
                 <div className="flex justify-between items-center mb-8">
                   <div className="flex items-center gap-2">
@@ -407,10 +412,6 @@ export default function AuthModal({ isOpen, onClose }) {
                   Continue with Google
                 </button>
               </div>
-            </motion.div>
-          </div>
-        </React.Fragment>
-      )}
-    </AnimatePresence>
+    </BottomSheet>
   );
 }

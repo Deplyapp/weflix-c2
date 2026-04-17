@@ -2,8 +2,9 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { motion } from 'framer-motion';
 import ContentCard from './ContentCard';
-import { fetchMbSearch } from './Fetcher';
+import { fetchMbSearch, mbCoverUrl } from './Fetcher';
 import { BiWifi } from 'react-icons/bi';
+import Skeleton from '../../components/Skeleton';
 
 const ErrorWarning = () => (
   <div className="flex flex-col items-center justify-center gap-3 py-16">
@@ -74,7 +75,7 @@ const ContentGrid = ({ type, onSelect, onReset }) => {
     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4">
       {loading && items.length === 0
         ? Array.from({ length: 14 }).map((_, i) => (
-            <div key={i} className="aspect-[2/3] rounded-xl bg-white/5 animate-pulse" />
+            <Skeleton key={i} className="aspect-[2/3] w-full" rounded="rounded-xl" />
           ))
         : items.map((item, index) => {
             const mediaType = item.subjectType !== 1 ? 'tv' : 'movie';
@@ -87,7 +88,7 @@ const ContentGrid = ({ type, onSelect, onReset }) => {
               >
                 <ContentCard
                   title={item.title}
-                  poster={item.cover}
+                  poster={mbCoverUrl(item.cover, 300)}
                   rating={item.rating ? parseFloat(item.rating) : null}
                   releaseDate={item.releaseDate}
                   onClick={() => onSelect(item, mediaType)}

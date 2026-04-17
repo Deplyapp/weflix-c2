@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import PropTypes from "prop-types";
-import { fetchMbDetail, fetchMbSeasons } from "../Fetcher";
+import { fetchMbDetail, fetchMbSeasons, mbCoverUrl } from "../Fetcher";
 import { getIdFromDetailSlug, getTitleFromDetailSlug } from "../urlUtils";
 import { saveToContinueWatching } from "../../../utils/continueWatching";
 import {
@@ -31,6 +31,8 @@ import SmartPlayer, { enterFullscreenLandscape, preResolveStream } from "../Smar
 import SEO from "../SEO";
 import AuthModal from "../../../components/AuthModal";
 import { useWatchlist } from "../../../context/WatchlistContext";
+import { useProgressWhile } from "../../../context/ProgressContext";
+// View-transition wiring (Task #115) was reverted — see ContentCard for context.
 
 const getValidParamNumber = (params, key) => {
   const raw = params.get(key);
@@ -60,6 +62,8 @@ const TvDetails = ({ tvId: tvIdProp }) => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(null);
   const [seasonDropdownOpen, setSeasonDropdownOpen] = useState(false);
+
+  useProgressWhile(loading);
   const [seasonFading, setSeasonFading] = useState(false);
   const { user, watchlistIds, toggleWatchlist: ctxToggleWatchlist } = useWatchlist();
   const inWatchlist = tv?.subjectId ? watchlistIds.has(String(tv.subjectId)) : false;
@@ -74,11 +78,14 @@ const TvDetails = ({ tvId: tvIdProp }) => {
   }, []);
 
   const handleBack = () => {
-    if (location.state?.from) {
-      navigate(location.state.from);
-      return;
-    }
-    navigate(-1);
+    const go = () => {
+      if (location.state?.from) {
+        navigate(location.state.from);
+        return;
+      }
+      navigate(-1);
+    };
+    go();
   };
 
   useLayoutEffect(() => {
@@ -278,7 +285,7 @@ const TvDetails = ({ tvId: tvIdProp }) => {
   const truncated = overview.length > 240 && !showOverview
     ? overview.slice(0, 240) + "..."
     : overview;
-  const coverUrl = tv.cover?.url || '';
+  const coverUrl = mbCoverUrl(tv.cover, 1280) || '';
   const staffList = tv.staffList || [];
   const cast = staffList.filter(s => s.staffType === 2 || s.type === 'cast' || s.type === 'actor' || !s.type).slice(0, 20).map(s => ({
     name: s.name,
@@ -302,7 +309,9 @@ const TvDetails = ({ tvId: tvIdProp }) => {
               src={coverUrl}
               alt=""
               className="w-full h-full object-cover object-top"
-              style={{ filter: "brightness(0.45) contrast(1.1) saturate(1.1)" }}
+              style={{
+                filter: "brightness(0.45) contrast(1.1) saturate(1.1)",
+              }}
             />
           ) : (
             <div className="w-full h-full bg-[#141414]" />

@@ -1,31 +1,32 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { toDetailPath } from './urlUtils';
 import HeroBanner from './HeroBanner';
 import TrendingRow from './TrendingRow';
 import ContinueWatchingRow from './ContinueWatchingRow';
 import SEO from './SEO';
 import { fetchHome, normalizeHomeSection } from './Fetcher';
+import Skeleton from '../../components/Skeleton';
+import { useProgressWhile } from '../../context/ProgressContext';
 
+// Home page is intentionally short — top trending + a couple of featured
+// rows. The previous long genre browse list was removed per user feedback
+// (too much scrolling, hurt smoothness on low-end devices). Genre browse
+// still lives on the dedicated /search and /genre pages.
 const MAX_HOME_ROWS = 3;
-
-const SectionDivider = ({ label }) => (
-  <div className="flex items-center gap-4 px-4 sm:px-6 mb-8 mt-4">
-    <div className="flex-1 h-px bg-white/[0.05]" />
-    <span className="text-gray-600 text-[11px] font-bold uppercase tracking-[0.25em]">{label}</span>
-    <div className="flex-1 h-px bg-white/[0.05]" />
-  </div>
-);
 
 const RowSkeleton = () => (
   <section className="mb-10">
     <div className="flex items-center gap-3 px-4 sm:px-6 mb-5">
-      <div className="w-24 h-5 rounded-md bg-white/[0.06] animate-pulse" />
+      <Skeleton width={96} height={20} />
     </div>
     <div className="flex gap-2.5 px-4 sm:px-6 overflow-hidden">
       {Array.from({ length: 9 }).map((_, i) => (
-        <div key={i} className="shrink-0 w-[130px] md:w-[150px] h-[195px] md:h-[225px] rounded-xl bg-white/[0.05] animate-pulse" />
+        <Skeleton
+          key={i}
+          className="shrink-0 w-[130px] md:w-[150px] h-[195px] md:h-[225px]"
+          rounded="rounded-xl"
+        />
       ))}
     </div>
   </section>
@@ -35,6 +36,9 @@ export default function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sections, setSections] = useState([]);
+  const [sectionsLoading, setSectionsLoading] = useState(true);
+
+  useProgressWhile(sectionsLoading);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +60,7 @@ export default function HomePage() {
           .slice(0, MAX_HOME_ROWS);
         setSections(parsed);
       } catch { /* ignore */ }
+      finally { if (!cancelled) setSectionsLoading(false); }
     })();
     return () => { cancelled = true; };
   }, []);
@@ -81,20 +86,8 @@ export default function HomePage() {
 
   const ACCENT_COLORS = ['#ef4444', '#8b5cf6', '#f59e0b', '#10b981', '#3b82f6', '#f97316', '#ec4899', '#14b8a6', '#a855f7', '#f43f5e'];
 
-  const allSections = sections.map((s, idx) => ({
-    ...s,
-    showRank: idx === 0,
-    accent: ACCENT_COLORS[idx % ACCENT_COLORS.length],
-    key: `home-${idx}`,
-  }));
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-      className="bg-[#0a0c12] min-h-screen"
-    >
+    <div className="bg-[#0a0c12] min-h-screen">
       <SEO
         title="PopCorn TV — Stream Movies & TV Shows"
         description="Watch trending movies and TV shows for free. Browse by genre, discover new releases, and stream instantly on PopCorn TV."
@@ -105,26 +98,26 @@ export default function HomePage() {
       <div className="pt-10 pb-8">
         <ContinueWatchingRow onSelect={handleContinueSelect} />
 
-        {allSections.map((sec) => (
+        {sections.map((sec, idx) => (
           <TrendingRow
-            key={sec.key}
+            key={`home-${idx}`}
             title={sec.title}
             items={sec.items}
-            showRank={sec.showRank}
-            accent={sec.accent}
+            showRank={idx === 0}
+            accent={ACCENT_COLORS[idx % ACCENT_COLORS.length]}
             onSelect={handleSelect}
             onSeeAll={goSearch}
+            priorityRow={idx === 0}
           />
         ))}
 
-        {sections.length === 0 && (
+        {sectionsLoading && sections.length === 0 && (
           <>
-            <RowSkeleton />
             <RowSkeleton />
             <RowSkeleton />
           </>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }

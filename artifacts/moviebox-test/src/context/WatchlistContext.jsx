@@ -120,6 +120,8 @@ export function WatchlistProvider({ children }) {
     }
 
     const id = String(item.mediaId);
+    const wasIn = watchlistIds.has(id);
+    const toast = (typeof window !== 'undefined' && window.__toast) || null;
 
     if (!firebaseEnabled || !db) {
       const newIds = new Set(watchlistIds);
@@ -134,17 +136,22 @@ export function WatchlistProvider({ children }) {
       setWatchlistIds(newIds);
       setWatchlistItems(newItems);
       saveGuestWatchlist(newIds, newItems);
+      toast?.success(wasIn ? `Removed "${item.title}" from your list` : `Added "${item.title}" to your list`);
       return;
     }
 
-    const ref = doc(db, 'users', user.uid, 'watchlist', id);
-    if (watchlistIds.has(id)) {
-      await deleteDoc(ref);
-    } else {
-      await setDoc(ref, {
-        ...item,
-        addedAt: new Date().toISOString(),
-      });
+    try {
+      const ref = doc(db, 'users', user.uid, 'watchlist', id);
+      if (wasIn) {
+        await deleteDoc(ref);
+        toast?.success(`Removed "${item.title}" from your list`);
+      } else {
+        await setDoc(ref, { ...item, addedAt: new Date().toISOString() });
+        toast?.success(`Added "${item.title}" to your list`);
+      }
+    } catch (err) {
+      console.error('Watchlist update failed', err);
+      toast?.error('Could not update your list. Please try again.');
     }
   }, [user, watchlistIds, watchlistItems]);
 

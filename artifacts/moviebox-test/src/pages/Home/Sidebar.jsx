@@ -8,6 +8,7 @@ import {
   BiBookmark
 } from 'react-icons/bi';
 import { FaPlay, FaSignOutAlt, FaUserCircle } from 'react-icons/fa';
+import { motion, LayoutGroup } from 'framer-motion';
 const GENRES = { movie: [], tv: [] };
 const SPECIAL_CATEGORIES = { movie: [], tv: [] };
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -97,32 +98,41 @@ function Sidebar({ activePage, onNavigate, selectedGenreId, onGenreSelect, onOpe
       </div>
 
       {/* Nav items */}
-      <nav className={`flex flex-col gap-1 px-[10px] ${showCategories ? 'shrink-0 pb-3' : 'flex-1 pb-6'}`}>
-        {NAV_ITEMS.map(({ id, icon: Icon, action, label }) => {
-          const isActive = activeId === id;
-          return (
-            <button
-              key={id}
-              onClick={() => onNavigate(id)}
-              title={label}
-              className={`
-                relative flex items-center gap-4 px-4 py-3.5 rounded-2xl
-                w-full text-[14px] font-medium whitespace-nowrap
-                border-2 transition-colors duration-200 focus:outline-none
-                ${isActive
-                  ? 'border-red-500/35 bg-red-500/15 text-white shadow-sm shadow-red-950/30'
-                  : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5 hover:border-transparent'
-                }
-              `}
-            >
-              <Icon className={`text-[24px] shrink-0 transition-colors duration-200 ${isActive ? 'text-red-400' : ''}`} />
-              <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-75">
-                {label}
-              </span>
-            </button>
-          );
-        })}
-      </nav>
+      <LayoutGroup id="sidebar-nav">
+        <nav className={`flex flex-col gap-1 px-[10px] ${showCategories ? 'shrink-0 pb-3' : 'flex-1 pb-6'}`}>
+          {NAV_ITEMS.map(({ id, icon: Icon, action, label }) => {
+            const isActive = activeId === id;
+            return (
+              <motion.button
+                key={id}
+                onClick={() => onNavigate(id)}
+                title={label}
+                whileHover={{ x: 3 }}
+                whileTap={{ scale: 0.94 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+                className={`
+                  relative flex items-center gap-4 px-4 py-3.5 rounded-2xl
+                  w-full text-[14px] font-medium whitespace-nowrap
+                  focus:outline-none
+                  ${isActive ? 'text-white' : 'text-gray-400 hover:text-white'}
+                `}
+              >
+                {isActive && (
+                  <motion.span
+                    layoutId="sidebar-active-pill"
+                    className="absolute inset-0 rounded-2xl bg-red-500/15 border-2 border-red-500/35 shadow-sm shadow-red-950/30"
+                    transition={{ type: 'spring', stiffness: 500, damping: 38 }}
+                  />
+                )}
+                <Icon className={`relative text-[24px] shrink-0 transition-colors duration-200 ${isActive ? 'text-red-400' : ''}`} />
+                <span className="relative opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-75">
+                  {label}
+                </span>
+              </motion.button>
+            );
+          })}
+        </nav>
+      </LayoutGroup>
 
       {/* Categories section — only on movies / series */}
       {showCategories && (

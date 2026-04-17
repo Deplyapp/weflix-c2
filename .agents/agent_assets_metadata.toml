@@ -1,5 +1,10 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "nu0gc9I275n4PiTbSBsp6"
+uri = "file://artifacts/weflix-mobile/assets/images/icon.png"
+type = "image"
+title = "weflix red W icon"
 
 [[outputs]]
 id = "UpL7lHMfGg6q7jVgZgXhw"

@@ -5,7 +5,8 @@ import { toDetailPath } from './urlUtils';
 import { FaSearch, FaTimes } from 'react-icons/fa';
 import ContentCard from './ContentCard';
 import SEO from './SEO';
-import { fetchMbSearch } from './Fetcher';
+import { fetchMbSearch, mbCoverUrl } from './Fetcher';
+import { useProgressWhile } from '../../context/ProgressContext';
 
 const GRID_CLASSES = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4 mt-4';
 const DEBOUNCE_DELAY = 400;
@@ -29,6 +30,7 @@ function SearchPage() {
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  useProgressWhile(isLoading);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -189,7 +191,7 @@ function SearchPage() {
                 >
                   <ContentCard
                     title={item.title}
-                    poster={item.cover}
+                    poster={mbCoverUrl(item.cover, 300)}
                     rating={item.rating ? parseFloat(item.rating) : null}
                     releaseDate={item.releaseDate}
                     onClick={() => {
