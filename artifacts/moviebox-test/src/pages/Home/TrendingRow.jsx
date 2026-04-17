@@ -134,8 +134,8 @@ export default function TrendingRow({
           return (
             <div
               key={item.subjectId}
-              className={`shrink-0 relative self-stretch ${showRank ? 'pt-6 pl-2' : ''}`}
-              style={{ width: showRank ? 165 : 135, height: showRank ? 285 : 250 }}
+              className={`shrink-0 relative self-start ${showRank ? 'pt-6 pl-2' : ''}`}
+              style={{ width: showRank ? 165 : 135, minHeight: showRank ? 285 : 250 }}
             >
               {showRank && (
                 <span
