@@ -162,6 +162,7 @@ export default function TrendingRow({
                   onSelect(item, mediaType);
                 }}
                 mediaType={mediaType}
+                priority={index < 6}
               />
             </div>
           );

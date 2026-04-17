@@ -17,6 +17,7 @@ const ContentCard = memo(({
   voteAverage,
   onNeedAuth,
   isWatchlistPage = false,
+  priority = false,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -79,13 +80,11 @@ const ContentCard = memo(({
           <img
             src={src}
             alt={title}
-            loading="lazy"
+            loading={priority ? 'eager' : 'lazy'}
             decoding="async"
-            fetchPriority="low"
+            fetchPriority={priority ? 'high' : 'auto'}
             draggable={false}
-            className={`w-full h-full object-cover ${
-              imageLoaded ? 'opacity-100 poster-fade-in' : 'opacity-0'
-            }`}
+            className="w-full h-full object-cover"
             onLoad={() => setImageLoaded(true)}
             onError={() => { setImageError(true); setImageLoaded(true); }}
           />
@@ -155,6 +154,7 @@ ContentCard.propTypes = {
   voteAverage: PropTypes.number,
   onNeedAuth: PropTypes.func,
   isWatchlistPage: PropTypes.bool,
+  priority: PropTypes.bool,
 };
 
 ContentCard.displayName = 'ContentCard';
