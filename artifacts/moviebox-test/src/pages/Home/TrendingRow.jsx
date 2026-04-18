@@ -137,7 +137,7 @@ export default function TrendingRow({
         onMouseMove={onRowMouseMove}
         onMouseLeave={endRowDrag}
         className={`flex gap-2 overflow-x-auto hide-scrollbar px-4 sm:px-6 select-none snap-x snap-proximity card-row ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-        style={{ paddingTop: 20, paddingBottom: 20, marginTop: -12, marginBottom: -12, scrollPaddingLeft: 16, scrollPaddingRight: 16, touchAction: 'pan-x' }}
+        style={{ paddingTop: 20, paddingBottom: 20, marginTop: -12, marginBottom: -12, scrollPaddingLeft: 16, scrollPaddingRight: 16 }}
       >
         {items.map((item, index) => {
           const mediaType = item.subjectType !== 1 ? 'tv' : 'movie';

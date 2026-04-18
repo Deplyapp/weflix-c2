@@ -146,7 +146,7 @@ export default function ContinueWatchingRow({ onSelect, accent }) {
         onMouseMove={onRowMouseMove}
         onMouseLeave={endRowDrag}
         className={`flex gap-3 overflow-x-auto hide-scrollbar px-4 sm:px-6 select-none card-row ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-        style={{ paddingTop: 24, paddingBottom: 24, marginTop: -16, marginBottom: -16, touchAction: 'pan-x' }}
+        style={{ paddingTop: 24, paddingBottom: 24, marginTop: -16, marginBottom: -16 }}
       >
         {items.map((item) => {
           const releaseDate = item.release_date || '';
