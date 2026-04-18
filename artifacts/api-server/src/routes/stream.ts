@@ -146,7 +146,7 @@ router.all("/bff-sign", async (req: Request, res: Response) => {
     }
     const baseUrl = useCfProxy
       ? CF_MOVIEBOX_PROXY_URL + "/bff"
-      : "https://api.inmoviebox.com";
+      : "https://api3.aoneroom.com";
     res.json({
       authReady: !!authToken,
       method: reqMethod,
