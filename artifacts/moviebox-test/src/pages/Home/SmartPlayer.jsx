@@ -371,6 +371,11 @@ function Mp4VidstackPlayer({ streams, proxyBase, languages, dubs, currentSubject
   const [usingProxy, setUsingProxy] = useState(directCdnMode === false);
   const directFailedRef = useRef(false);
   const autoLangAppliedRef = useRef(false);
+  // Tracks decode-error recovery attempts. Some episodes (e.g. Classroom of
+  // the Elite S4) ship with a corrupt first ~2s of video — the official
+  // MovieBox app silently seeks past it, so we do the same instead of
+  // surfacing "Stream not available".
+  const decodeRecoveryRef = useRef({ attempts: 0, lastErrorAt: 0 });
 
   const activeProxyBase = proxyBase || "";
 
@@ -390,6 +395,7 @@ function Mp4VidstackPlayer({ streams, proxyBase, languages, dubs, currentSubject
     directFailedRef.current = false;
     savedTimeRef.current = 0;
     isLangSwitchRef.current = false;
+    decodeRecoveryRef.current = { attempts: 0, lastErrorAt: 0 };
     const shouldProxy = directCdnMode === false;
     setUsingProxy(shouldProxy);
     const sources = buildVideoSources(streams, proxyBase || "", shouldProxy);
@@ -609,7 +615,43 @@ function Mp4VidstackPlayer({ streams, proxyBase, languages, dubs, currentSubject
     }
   }, [onReady, finishSwitch, usingProxy]);
 
-  const handleError = useCallback(() => {
+  const handleError = useCallback((detail) => {
+    // Vidstack passes a MediaErrorDetail with { code, message, mediaError? }.
+    // code maps to HTMLMediaElement MediaError codes:
+    //   1 ABORTED, 2 NETWORK, 3 DECODE, 4 SRC_NOT_SUPPORTED.
+    const code = detail?.code ?? detail?.mediaError?.code;
+    const player = playerRef.current;
+
+    // Recovery path 1: bad video frames in the source file (DECODE error or
+    // generic media error while we ALREADY have buffered data). The official
+    // MovieBox app handles this by seeking 1-2s forward and resuming. We do
+    // the same — up to 4 attempts, jumping a little further each time.
+    if (player && (code === 3 || code === undefined) && !langSwitching) {
+      const now = Date.now();
+      const rec = decodeRecoveryRef.current;
+      // Reset attempt counter if last error was >30s ago (different glitch).
+      if (now - rec.lastErrorAt > 30_000) rec.attempts = 0;
+      rec.lastErrorAt = now;
+      if (rec.attempts < 4) {
+        rec.attempts += 1;
+        const cur = Number(player.currentTime) || 0;
+        const jumpTo = cur + (1.5 * rec.attempts); // 1.5s, 3s, 4.5s, 6s
+        try {
+          player.currentTime = jumpTo;
+          // Best-effort resume; some browsers require an explicit play().
+          const playPromise = player.play?.();
+          if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch(() => {});
+          }
+          return;
+        } catch {
+          // fall through to direct/proxy fallback
+        }
+      }
+    }
+
+    // Recovery path 2: direct-CDN attempt failed → flip to proxy and retry
+    // (this covers the geo/IP-block 403 case).
     if (!usingProxy && !directFailedRef.current && activeProxyBase) {
       directFailedRef.current = true;
       directCdnMode = false;
@@ -622,7 +664,7 @@ function Mp4VidstackPlayer({ streams, proxyBase, languages, dubs, currentSubject
       }
     }
     onError?.();
-  }, [onError, usingProxy, activeProxyBase]);
+  }, [onError, usingProxy, activeProxyBase, langSwitching]);
 
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-black smart-player-fill">
