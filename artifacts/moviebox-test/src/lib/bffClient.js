@@ -1,4 +1,4 @@
-const BFF_API = 'https://api3.aoneroom.com';
+const BFF_API = 'https://api.inmoviebox.com';
 const SIGN_BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, '/');
 
 const signCache = new Map();

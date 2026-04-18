@@ -4,7 +4,7 @@ import { logger } from "../lib/logger";
 
 const SECRET_KEY = process.env.MOVIEBOX_BFF_SECRET || "76iRl07s0xSN9jqmEWAt79EBJZulIQIsV64FZr2O";
 const SECRET_BYTES = SECRET_KEY ? Buffer.from(SECRET_KEY, "base64") : Buffer.alloc(0);
-const BFF_DIRECT_URL = "https://api3.aoneroom.com";
+const BFF_DIRECT_URL = "https://api.inmoviebox.com";
 const MB_EMAIL = process.env.MOVIEBOX_EMAIL || "botnestai@gmail.com";
 const MB_PASSWORD = process.env.MOVIEBOX_PASSWORD || "Kaifssdd";
 const BFF_PROXY_URL = process.env.BFF_PROXY_URL || "";
