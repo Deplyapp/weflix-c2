@@ -103,17 +103,16 @@ a[role="button"],
   to   { opacity: 1; transform: scale(1); }
 }
 
-/* Horizontal card rows: claim only horizontal panning so vertical swipes
-   bubble up to the page scroller. Without this, finger-on-card vertical
-   swipes get swallowed by the snap-scroll gesture-resolver on iOS WebView.
-   IMPORTANT: do NOT also override `touch-action` on the cards inside —
-   they must keep the default `manipulation` (allows both pan-x and pan-y).
-   The browser disambiguates: horizontal pan goes to this row (because of
-   `pan-x` here + `overflow-x: auto`), vertical pan bubbles to the page.
-   Restricting the cards to `pan-y` would dead-lock horizontal scrolling
-   and taps on touch devices. */
+/* Horizontal card rows: keep `touch-action: auto` (the default) so the
+   browser's own gesture detector decides whether a swipe is horizontal
+   (scroll the row) or vertical (scroll the page). We previously set
+   `pan-x` here, which blocked vertical swipes on Android entirely —
+   even cards inside lost vertical scroll because the parent restricted
+   the gesture set. The original iOS problem was caused by
+   `snap-mandatory`; switching the row to `snap-proximity` fixes that
+   without needing any `touch-action` override. We only contain the
+   horizontal rubber-band so it doesn't bleed into the page. */
 .card-row {
-  touch-action: pan-x;
   overscroll-behavior-x: contain;
 }
 
