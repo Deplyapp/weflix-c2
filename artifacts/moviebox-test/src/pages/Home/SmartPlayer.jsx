@@ -637,11 +637,11 @@ function Mp4VidstackPlayer({ streams, proxyBase, languages, dubs, currentSubject
       const now = Number(p.currentTime) || 0;
       // If currentTime hasn't moved, we're stuck on a bad frame.
       if (Math.abs(now - stallRef.current.lastTime) < 0.05) {
-        if (stallRef.current.attempts >= 6) return; // give up
+        if (stallRef.current.attempts >= 4) return; // give up
         stallRef.current.attempts += 1;
-        // First attempt: small nudge (300ms — past one bad frame). Subsequent
-        // attempts increase the jump in case there's a chunk of bad frames.
-        const jump = stallRef.current.attempts === 1 ? 0.3 : 0.5 + stallRef.current.attempts * 0.5;
+        // Jump 4 seconds forward on every stall — enough to clear an entire
+        // corrupt section in one go so the user doesn't see repeated freezes.
+        const jump = 4;
         try {
           p.currentTime = now + jump;
           const pp = p.play?.();
