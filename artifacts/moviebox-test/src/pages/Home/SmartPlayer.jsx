@@ -389,49 +389,66 @@ function Mp4VidstackPlayer({ streams, proxyBase, languages, dubs, currentSubject
   const activeProxyBase = proxyBase || "";
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const findVideoEl = () => {
       const p = playerRef.current;
-      if (!p) return;
-      const state = p.state;
-      if (!state || !state.canPlay) return;
-      if (state.paused || state.seeking || state.ended) {
-        stallRef.current.lastTime = state.currentTime || 0;
+      if (!p) return null;
+      // Vidstack player exposes the underlying <video> via .el (the host
+      // <media-player> element). We query for the rendered <video>.
+      const host = p.el || p.$el || null;
+      if (host && typeof host.querySelector === "function") {
+        const v = host.querySelector("video");
+        if (v) return v;
+      }
+      return null;
+    };
+    const interval = setInterval(() => {
+      const v = findVideoEl();
+      if (!v) return;
+      // Don't intervene unless we're in active playback
+      if (v.paused || v.seeking || v.ended) {
+        stallRef.current.lastTime = v.currentTime || 0;
         stallRef.current.stuckSince = 0;
         return;
       }
-      const ct = state.currentTime || 0;
-      if (Math.abs(ct - stallRef.current.lastTime) < 0.05) {
-        // Time hasn't moved. Check whether we have buffered data ahead of
-        // currentTime — if yes, it's a decoder choke; if no, just network.
-        const buffered = state.buffered;
+      const ct = v.currentTime || 0;
+      const moved = Math.abs(ct - stallRef.current.lastTime) >= 0.05;
+      if (!moved) {
+        // Compute how much data is buffered past the current position. If
+        // we have ANY data ahead and we're not advancing, the decoder is
+        // choking on a corrupt frame (network would refill, decode stuck
+        // is invisible to the `error` handler).
         let ahead = 0;
-        if (buffered && buffered.length) {
-          for (let i = 0; i < buffered.length; i++) {
-            try {
-              const start = buffered.start(i);
-              const end = buffered.end(i);
-              if (start <= ct + 0.5 && end > ct) {
-                ahead = end - ct;
-                break;
-              }
-            } catch {}
+        try {
+          const b = v.buffered;
+          for (let i = 0; i < b.length; i++) {
+            const start = b.start(i);
+            const end = b.end(i);
+            if (start <= ct + 0.5 && end > ct) {
+              ahead = end - ct;
+              break;
+            }
           }
-        }
-        if (ahead >= 2) {
-          if (!stallRef.current.stuckSince) stallRef.current.stuckSince = Date.now();
-          else if (Date.now() - stallRef.current.stuckSince >= 2500 && stallRef.current.attempts < 4) {
-            stallRef.current.attempts += 1;
-            try { p.currentTime = ct + 4; } catch {}
-            stallRef.current.stuckSince = 0;
-          }
-        } else {
+        } catch {}
+        // Even with no ahead-buffer, browsers sometimes just deadlock on a
+        // corrupt frame. Try recovery after a longer wait in that case.
+        const threshold = ahead >= 1 ? 2000 : 4000;
+        if (!stallRef.current.stuckSince) stallRef.current.stuckSince = Date.now();
+        else if (Date.now() - stallRef.current.stuckSince >= threshold && stallRef.current.attempts < 4) {
+          stallRef.current.attempts += 1;
+          const target = ct + 4;
+          // eslint-disable-next-line no-console
+          console.warn(`[SmartPlayer] decoder stalled at ${ct.toFixed(2)}s (ahead=${ahead.toFixed(2)}s, attempt ${stallRef.current.attempts}) → seeking to ${target.toFixed(2)}s`);
+          try {
+            v.currentTime = target;
+            const pp = v.play?.();
+            if (pp && typeof pp.catch === "function") pp.catch(() => {});
+          } catch {}
           stallRef.current.stuckSince = 0;
+          stallRef.current.lastTime = target;
         }
       } else {
         stallRef.current.lastTime = ct;
         stallRef.current.stuckSince = 0;
-        // Reset attempt counter after 10s of clean playback so a later
-        // glitch later in the file gets its own recovery budget.
         if (ct - stallRef.current.lastResetTime > 10) {
           stallRef.current.attempts = 0;
           stallRef.current.lastResetTime = ct;
