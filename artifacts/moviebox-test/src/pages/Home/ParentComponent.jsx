@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { BiHomeAlt, BiMoviePlay, BiTv, BiSearch, BiBookmark } from 'react-icons/bi';
 import { FaUserCircle, FaSignOutAlt } from 'react-icons/fa';
-import { AnimatePresence, motion, LayoutGroup, useReducedMotion } from 'framer-motion';
+import { motion, LayoutGroup } from 'framer-motion';
 import Sidebar from './Sidebar';
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, firebaseEnabled } from "../../firebase";
@@ -14,10 +14,6 @@ import ScrollToTopButton from "../../components/ScrollToTopButton";
 function ParentComponent() {
   const location = useLocation();
   const navigate = useNavigate();
-  const navType = useNavigationType();
-  const reduceMotion = useReducedMotion();
-  const isBack = navType === 'POP';
-  const skipFramerFade = reduceMotion;
   const [user, setUser] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
@@ -81,21 +77,13 @@ function ParentComponent() {
 
       <ScrollToTopButton showAfter={300} />
 
-      {/* Page content — animated route transitions, parent shell stays mounted */}
+      {/* Page content. Note: AnimatePresence + motion.div was previously
+          wrapped here for cross-route fade transitions, but it interfered
+          with touch on mobile (the wrapper applied transient styles during
+          its 180ms exit phase that could swallow swipes if the user
+          touched right after a route change). Reverted to plain Outlet. */}
       <div className="md:pl-[84px] pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={location.pathname}
-            initial={skipFramerFade ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={skipFramerFade ? { opacity: 1 } : { opacity: 0 }}
-            transition={skipFramerFade
-              ? { duration: 0 }
-              : { duration: 0.18, ease: 'easeOut' }}
-          >
-            <Outlet />
-          </motion.div>
-        </AnimatePresence>
+        <Outlet />
 
         {/* Footer — home page only */}
         {location.pathname === '/' && <footer className="bg-[#0a0c12]">
