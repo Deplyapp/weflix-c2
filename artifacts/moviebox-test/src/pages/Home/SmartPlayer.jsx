@@ -175,7 +175,7 @@ function PlayerOverlayControls({ subtitles, allDubs, allLanguages, langProbing, 
   // Vidstack's bottom control bar sits at the player bottom with ~2.75rem
   // padding (or ~1.5rem in fullscreen). Place our pills well above it so
   // the scrubber + play button never clip or overlap.
-  const bottomOffset = isFs ? '5rem' : 'calc(7rem + env(safe-area-inset-bottom, 0px))';
+  const bottomOffset = isFs ? '3.25rem' : 'calc(4.5rem + env(safe-area-inset-bottom, 0px))';
   const sideOffset = isFs ? '0.75rem' : 'calc(0.75rem + env(safe-area-inset-left, 0px))';
   const sideOffsetR = isFs ? '0.75rem' : 'calc(0.75rem + env(safe-area-inset-right, 0px))';
   const baseStyle = {

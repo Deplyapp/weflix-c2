@@ -92,35 +92,16 @@ export async function fetchMbGenre(keyword, page = 1) {
   })).filter(i => i.cover && i.title);
 }
 
-function reportToServer(payload) {
-  try {
-    const url = `${import.meta.env.BASE_URL}api/debug/log`.replace(/\/\//g, '/');
-    fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      keepalive: true,
-    }).catch(() => {});
-  } catch {}
-}
-
 export async function fetchMbDetail(subjectId, titleHint) {
-  // TEMP DEBUG: BFF-direct only, ship outcome to server logs.
-  const t0 = Date.now();
-  try {
-    const data = await bffDetail(subjectId);
-    const ms = Date.now() - t0;
-    if (data?.data) {
-      reportToServer({ tag: 'fetchMbDetail', ok: true, subjectId, ms, hasData: true, code: data.code });
-      return data.data;
-    }
-    reportToServer({ tag: 'fetchMbDetail', ok: false, subjectId, ms, reason: 'no data field', code: data?.code, message: data?.message, raw: JSON.stringify(data || {}).slice(0, 500) });
-    throw new Error('BFF detail returned no data');
-  } catch (err) {
-    const ms = Date.now() - t0;
-    reportToServer({ tag: 'fetchMbDetail', ok: false, subjectId, ms, errName: err?.name, errMessage: err?.message || String(err), errStack: (err?.stack || '').slice(0, 300) });
-    throw err;
+  if (isClientBffEnabled()) {
+    try {
+      const data = await bffDetail(subjectId);
+      if (data?.data) return data.data;
+    } catch {}
   }
+  let path = `/stream/mb-detail?subjectId=${encodeURIComponent(subjectId)}`;
+  if (titleHint) path += `&title=${encodeURIComponent(titleHint)}`;
+  return fetchWithRetry(path);
 }
 
 export async function fetchMbSeasons(subjectId) {
@@ -139,57 +120,6 @@ export async function fetchMbSeasons(subjectId) {
 }
 
 export async function fetchMbStream(subjectId, type, se, ep, title) {
-  // TEMP DEBUG: try BFF play-info browser-direct first (residential IP can reach it; datacenter cannot).
-  if (isClientBffEnabled()) {
-    const t0 = Date.now();
-    try {
-      const seNum = type === 'tv' ? (se || 1) : 0;
-      const epNum = type === 'tv' ? (ep || 1) : 0;
-      const data = await bffPlayInfo(subjectId, seNum, epNum, 1080);
-      const ms = Date.now() - t0;
-      const streams = data?.data?.streams || [];
-      const firstUrl = streams[0]?.url || '';
-      const host = firstUrl ? new URL(firstUrl).hostname : '';
-      reportToServer({
-        tag: 'fetchMbStream/bffPlayInfo',
-        ok: streams.length > 0,
-        subjectId, ms,
-        code: data?.code,
-        message: data?.message,
-        count: streams.length,
-        host,
-        firstQuality: streams[0]?.quality,
-        firstFormat: streams[0]?.format,
-        firstUrl: firstUrl.slice(0, 200),
-      });
-      if (streams.length > 0) {
-        return {
-          source: 'bff-play-info',
-          type: streams[0]?.format?.toLowerCase()?.includes('hls') ? 'hls' : 'mp4',
-          streams: streams.map(s => ({
-            format: s.format,
-            id: s.id,
-            url: s.url,
-            quality: String(s.quality || ''),
-            size: s.size,
-            duration: s.duration,
-            codec: s.codec,
-          })),
-          dubs: [],
-          currentSubjectId: subjectId,
-        };
-      }
-    } catch (err) {
-      const ms = Date.now() - t0;
-      reportToServer({
-        tag: 'fetchMbStream/bffPlayInfo',
-        ok: false, subjectId, ms,
-        errName: err?.name,
-        errMessage: err?.message || String(err),
-      });
-    }
-  }
-  // Fallback: server-side resolution via H5
   const qs = new URLSearchParams({ subjectId });
   if (type) qs.set('type', type);
   if (se != null) qs.set('se', String(se));

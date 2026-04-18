@@ -31,16 +31,6 @@ const STREAM_PROXY_URL = process.env.STREAM_PROXY_URL || process.env.CF_STREAM_P
 const SUBTITLE_PROXY_URL = process.env.SUBTITLE_PROXY_URL || process.env.CF_SUBTITLE_PROXY_URL || "";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
-function wrapSubtitleUrls<T extends { url?: string }>(subs: T[] | undefined): T[] {
-  if (!subs || subs.length === 0 || !SUBTITLE_PROXY_URL) return subs || [];
-  const base = SUBTITLE_PROXY_URL.replace(/\/+$/, "");
-  return subs.map((s) => {
-    if (!s.url || typeof s.url !== "string" || !s.url.startsWith("http")) return s;
-    if (s.url.startsWith(base)) return s;
-    return { ...s, url: `${base}/?url=${encodeURIComponent(s.url)}` };
-  });
-}
-
 function getServerProxyBase(req: Request): string {
   if (STREAM_PROXY_URL) {
     return STREAM_PROXY_URL;
@@ -48,6 +38,22 @@ function getServerProxyBase(req: Request): string {
   const proto = req.headers["x-forwarded-proto"] ?? req.protocol ?? "https";
   const host = req.headers["x-forwarded-host"] ?? req.headers.host ?? "";
   return `${proto}://${host}/api/stream/proxy`;
+}
+
+function wrapSubtitleUrls<T extends { url?: string }>(subs: T[] | undefined, req?: Request): T[] {
+  if (!subs || subs.length === 0) return subs || [];
+  // Subtitle CDNs (pbcdn.aoneroom.com, etc) don't send CORS headers, so the
+  // browser cannot fetch SRT/VTT files directly via Vidstack <Track>. Always
+  // route through our own proxy (which sets Access-Control-Allow-Origin: *).
+  const base = SUBTITLE_PROXY_URL
+    ? SUBTITLE_PROXY_URL.replace(/\/+$/, "")
+    : (req ? getServerProxyBase(req).replace(/\/+$/, "") : "");
+  if (!base) return subs;
+  return subs.map((s) => {
+    if (!s.url || typeof s.url !== "string" || !s.url.startsWith("http")) return s;
+    if (s.url.startsWith(base)) return s;
+    return { ...s, url: `${base}?url=${encodeURIComponent(s.url)}` };
+  });
 }
 
 const bffPlayHealth = {
@@ -104,16 +110,6 @@ const ALLOWED_BFF_PATHS = new Set([
   "/wefeed-mobile-bff/subject-api/play-info",
   "/wefeed-mobile-bff/subject-api/resource",
 ]);
-
-router.post("/debug/log", (req: Request, res: Response) => {
-  try {
-    const ua = req.headers["user-agent"] || "";
-    logger.info({ debug: req.body, ua }, "[client-debug]");
-  } catch (e) {
-    logger.error({ err: String(e) }, "[client-debug] parse error");
-  }
-  res.json({ ok: true });
-});
 
 router.all("/bff-sign", async (req: Request, res: Response) => {
   const { path, query, method: reqMethod, body: reqBody } = req.method === "POST"
@@ -213,7 +209,7 @@ router.get("/stream/source", async (req: Request, res: Response) => {
         mbResponse.remappedEpisode = mbResult.remappedEpisode;
       }
       if (mbResult.subtitles && mbResult.subtitles.length > 0) {
-        mbResponse.subtitles = wrapSubtitleUrls(mbResult.subtitles);
+        mbResponse.subtitles = wrapSubtitleUrls(mbResult.subtitles, req);
       }
       if (mbResult.imdbId) mbResponse.imdbId = mbResult.imdbId;
       if (mbResult.imdbTitle) mbResponse.imdbTitle = mbResult.imdbTitle;
@@ -383,7 +379,7 @@ router.get("/stream/mb-stream", async (req: Request, res: Response) => {
         currentSubjectId,
         proxyBase: getServerProxyBase(req),
       };
-      if (subs.length > 0) resp.subtitles = wrapSubtitleUrls(subs);
+      if (subs.length > 0) resp.subtitles = wrapSubtitleUrls(subs, req);
       setMbStreamCache(cacheKey, resp);
       res.json(resp);
       return;
@@ -417,7 +413,7 @@ router.get("/stream/mb-stream", async (req: Request, res: Response) => {
           proxyBase: getServerProxyBase(req),
         };
         const subs = await bffSearchSubtitles(subjectId).catch(() => []);
-        if (subs.length > 0) resp.subtitles = wrapSubtitleUrls(subs);
+        if (subs.length > 0) resp.subtitles = wrapSubtitleUrls(subs, req);
         setMbStreamCache(cacheKey, resp);
         res.json(resp);
         return;
@@ -441,7 +437,7 @@ router.get("/stream/mb-stream", async (req: Request, res: Response) => {
           currentSubjectId,
           proxyBase: getServerProxyBase(req),
         };
-        if (resourceResult.subtitles.length > 0) resp.subtitles = wrapSubtitleUrls(resourceResult.subtitles);
+        if (resourceResult.subtitles.length > 0) resp.subtitles = wrapSubtitleUrls(resourceResult.subtitles, req);
         setMbStreamCache(cacheKey, resp);
         res.json(resp);
         return;
@@ -477,7 +473,7 @@ router.get("/stream/mb-play", async (req: Request, res: Response) => {
         proxyBase: getServerProxyBase(req),
       };
       if (result.subtitles && result.subtitles.length > 0) {
-        resp.subtitles = wrapSubtitleUrls(result.subtitles);
+        resp.subtitles = wrapSubtitleUrls(result.subtitles, req);
       }
       res.json(resp);
       return;
@@ -741,7 +737,7 @@ router.get("/stream/mb-subtitles", async (req: Request, res: Response) => {
   }
   try {
     const subs = await bffSearchSubtitles(subjectId);
-    res.json({ subtitles: wrapSubtitleUrls(subs) });
+    res.json({ subtitles: wrapSubtitleUrls(subs, req) });
   } catch (err) {
     logger.error({ err: String(err), subjectId }, "mb-subtitles error");
     res.status(500).json({ error: "Failed to fetch subtitles" });
