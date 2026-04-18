@@ -31,9 +31,17 @@ const router: IRouter = Router();
 
 const STREAM_PROXY_URL = process.env.STREAM_PROXY_URL || process.env.CF_STREAM_PROXY_URL || "";
 const SUBTITLE_PROXY_URL = process.env.SUBTITLE_PROXY_URL || process.env.CF_SUBTITLE_PROXY_URL || "";
+// Hard kill switches. Set STREAM_PROXY_ENABLED=false (or SUBTITLE_PROXY_ENABLED=false)
+// to bypass ALL proxying and let the browser hit the raw CDN URL directly.
+// Useful if you want to test direct-CDN performance, or if the proxy is the
+// bottleneck. WARNING: subtitle CDN has no CORS headers — disabling subtitle
+// proxy will break captions in most browsers.
+const STREAM_PROXY_ENABLED = (process.env.STREAM_PROXY_ENABLED ?? "true").toLowerCase() !== "false";
+const SUBTITLE_PROXY_ENABLED = (process.env.SUBTITLE_PROXY_ENABLED ?? "true").toLowerCase() !== "false";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 function getServerProxyBase(req: Request): string {
+  if (!STREAM_PROXY_ENABLED) return "";
   if (STREAM_PROXY_URL) {
     return STREAM_PROXY_URL;
   }
@@ -44,6 +52,9 @@ function getServerProxyBase(req: Request): string {
 
 function wrapSubtitleUrls<T extends { url?: string }>(subs: T[] | undefined, req?: Request): T[] {
   if (!subs || subs.length === 0) return subs || [];
+  // Hard kill switch — return raw CDN URLs (will only work if those CDNs
+  // happen to send CORS headers, which most don't).
+  if (!SUBTITLE_PROXY_ENABLED) return subs;
   // Subtitle CDNs (pbcdn.aoneroom.com, etc) don't send CORS headers, so the
   // browser cannot fetch SRT/VTT files directly via Vidstack <Track>. Always
   // route through our own proxy (which sets Access-Control-Allow-Origin: *).
@@ -93,6 +104,7 @@ const EMBED_VIDSRC = {
 };
 
 function getProxyBase(req: Request): string {
+  if (!STREAM_PROXY_ENABLED) return "";
   if (STREAM_PROXY_URL) {
     return STREAM_PROXY_URL;
   }

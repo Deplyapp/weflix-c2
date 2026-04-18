@@ -48,10 +48,24 @@ app.listen(port, (err) => {
     });
 
   const streamProxy = process.env.STREAM_PROXY_URL || process.env.CF_STREAM_PROXY_URL || "";
-  if (streamProxy) {
+  const subtitleProxy = process.env.SUBTITLE_PROXY_URL || process.env.CF_SUBTITLE_PROXY_URL || "";
+  const streamProxyEnabled = (process.env.STREAM_PROXY_ENABLED ?? "true").toLowerCase() !== "false";
+  const subtitleProxyEnabled = (process.env.SUBTITLE_PROXY_ENABLED ?? "true").toLowerCase() !== "false";
+
+  if (!streamProxyEnabled) {
+    logger.warn("Stream proxy: DISABLED (STREAM_PROXY_ENABLED=false) — browser will hit MovieBox CDN directly");
+  } else if (streamProxy) {
     logger.info({ streamProxy }, "Stream proxy: using external CF Worker");
   } else {
     logger.info("Stream proxy: using server's own /api/stream/proxy (no STREAM_PROXY_URL set)");
+  }
+
+  if (!subtitleProxyEnabled) {
+    logger.warn("Subtitle proxy: DISABLED (SUBTITLE_PROXY_ENABLED=false) — captions will likely fail (no CORS on subtitle CDN)");
+  } else if (subtitleProxy) {
+    logger.info({ subtitleProxy }, "Subtitle proxy: using external CF Worker");
+  } else {
+    logger.info("Subtitle proxy: using server's own /api/stream/proxy (no SUBTITLE_PROXY_URL set)");
   }
 
   probeDirectAccess()
