@@ -105,6 +105,16 @@ const ALLOWED_BFF_PATHS = new Set([
   "/wefeed-mobile-bff/subject-api/resource",
 ]);
 
+router.post("/debug/log", (req: Request, res: Response) => {
+  try {
+    const ua = req.headers["user-agent"] || "";
+    logger.info({ debug: req.body, ua }, "[client-debug]");
+  } catch (e) {
+    logger.error({ err: String(e) }, "[client-debug] parse error");
+  }
+  res.json({ ok: true });
+});
+
 router.all("/bff-sign", async (req: Request, res: Response) => {
   const { path, query, method: reqMethod, body: reqBody } = req.method === "POST"
     ? { ...req.query as Record<string, string>, method: (req.body?.method || "POST") as string, body: (req.body?.body || "") as string }
