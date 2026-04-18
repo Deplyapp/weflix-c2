@@ -61,13 +61,13 @@ a[role="button"],
   touch-action: manipulation;
 }
 
-/* iOS-style momentum scrolling everywhere */
-.hide-scrollbar,
-.custom-scrollbar,
-.scrollable {
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-}
+/* Note: previously this rule added `-webkit-overflow-scrolling: touch`
+   and `overscroll-behavior: contain` to .hide-scrollbar / .custom-scrollbar
+   / .scrollable for "iOS-style momentum scrolling". On the horizontal
+   carousel rows (.hide-scrollbar) the `contain` value also blocked
+   vertical-swipe propagation from the row up to the page on Android,
+   making the slider area feel touch-locked for vertical scroll.
+   Removed — modern iOS already does momentum scrolling natively. */
 
 #root {
   min-height: 100vh;
