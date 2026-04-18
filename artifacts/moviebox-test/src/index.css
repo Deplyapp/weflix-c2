@@ -96,7 +96,7 @@ a[role="button"],
    The blur(6px) filter pass was removed — it caused jank on mobile GPUs
    when many posters appeared during scroll. Pure compositor properties now. */
 .poster-fade-in {
-  animation: posterFadeIn 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: posterFadeIn 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes posterFadeIn {
   from { opacity: 0; transform: scale(1.01); }
