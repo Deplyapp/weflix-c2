@@ -93,17 +93,15 @@ export async function fetchMbGenre(keyword, page = 1) {
 }
 
 export async function fetchMbDetail(subjectId, titleHint) {
-  // TEMPORARY DEBUG: H5 fallback disabled — force BFF-direct only so any failure surfaces in the console.
-  console.log('[fetchMbDetail] calling bffDetail direct for', subjectId);
-  try {
-    const data = await bffDetail(subjectId);
-    console.log('[fetchMbDetail] BFF direct response:', data);
-    if (data?.data) return data.data;
-    throw new Error('BFF detail returned no data');
-  } catch (err) {
-    console.error('[fetchMbDetail] BFF direct FAILED:', err?.message || err);
-    throw err;
+  if (isClientBffEnabled()) {
+    try {
+      const data = await bffDetail(subjectId);
+      if (data?.data) return data.data;
+    } catch {}
   }
+  let path = `/stream/mb-detail?subjectId=${encodeURIComponent(subjectId)}`;
+  if (titleHint) path += `&title=${encodeURIComponent(titleHint)}`;
+  return fetchWithRetry(path);
 }
 
 export async function fetchMbSeasons(subjectId) {
