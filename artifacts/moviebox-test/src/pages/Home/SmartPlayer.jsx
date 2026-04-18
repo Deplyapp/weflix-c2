@@ -376,6 +376,12 @@ function Mp4VidstackPlayer({ streams, proxyBase, languages, dubs, currentSubject
   // MovieBox app silently seeks past it, so we do the same instead of
   // surfacing "Stream not available".
   const decodeRecoveryRef = useRef({ attempts: 0, lastErrorAt: 0 });
+  // Stall recovery: browsers don't fire `error` for damaged H.264 frames mid
+  // stream — they just freeze on a `waiting` event with no time progress. The
+  // official MovieBox app (ExoPlayer) papers over this by skipping forward.
+  // We replicate that: if the player is waiting and the current time hasn't
+  // advanced for >2.5s, we nudge it forward in small steps until it resumes.
+  const stallRef = useRef({ timer: null, lastTime: 0, attempts: 0 });
 
   const activeProxyBase = proxyBase || "";
 
@@ -396,6 +402,8 @@ function Mp4VidstackPlayer({ streams, proxyBase, languages, dubs, currentSubject
     savedTimeRef.current = 0;
     isLangSwitchRef.current = false;
     decodeRecoveryRef.current = { attempts: 0, lastErrorAt: 0 };
+    if (stallRef.current.timer) clearTimeout(stallRef.current.timer);
+    stallRef.current = { timer: null, lastTime: 0, attempts: 0 };
     const shouldProxy = directCdnMode === false;
     setUsingProxy(shouldProxy);
     const sources = buildVideoSources(streams, proxyBase || "", shouldProxy);
@@ -615,6 +623,51 @@ function Mp4VidstackPlayer({ streams, proxyBase, languages, dubs, currentSubject
     }
   }, [onReady, finishSwitch, usingProxy]);
 
+  // Called by Vidstack whenever the player enters a "waiting" state. We start
+  // a timer; if currentTime hasn't moved by the time it fires, the source has
+  // a corrupt frame the browser decoder can't get past — so we skip ahead.
+  const handleWaiting = useCallback(() => {
+    const player = playerRef.current;
+    if (!player) return;
+    if (stallRef.current.timer) clearTimeout(stallRef.current.timer);
+    stallRef.current.lastTime = Number(player.currentTime) || 0;
+    stallRef.current.timer = setTimeout(() => {
+      const p = playerRef.current;
+      if (!p) return;
+      const now = Number(p.currentTime) || 0;
+      // If currentTime hasn't moved, we're stuck on a bad frame.
+      if (Math.abs(now - stallRef.current.lastTime) < 0.05) {
+        if (stallRef.current.attempts >= 6) return; // give up
+        stallRef.current.attempts += 1;
+        // First attempt: small nudge (300ms — past one bad frame). Subsequent
+        // attempts increase the jump in case there's a chunk of bad frames.
+        const jump = stallRef.current.attempts === 1 ? 0.3 : 0.5 + stallRef.current.attempts * 0.5;
+        try {
+          p.currentTime = now + jump;
+          const pp = p.play?.();
+          if (pp && typeof pp.catch === 'function') pp.catch(() => {});
+        } catch {}
+      }
+    }, 2500);
+  }, []);
+
+  // Cancel any pending stall recovery and reset the attempt counter once
+  // playback resumes cleanly.
+  const handlePlaying = useCallback(() => {
+    if (stallRef.current.timer) {
+      clearTimeout(stallRef.current.timer);
+      stallRef.current.timer = null;
+    }
+    // Reset attempts only after a clean second of progress, otherwise back-to
+    // -back stalls would never trigger fallbacks.
+    stallRef.current.lastTime = Number(playerRef.current?.currentTime || 0);
+  }, []);
+
+  // Tear down the stall timer on unmount.
+  useEffect(() => () => {
+    if (stallRef.current.timer) clearTimeout(stallRef.current.timer);
+  }, []);
+
   const handleError = useCallback((detail) => {
     // Vidstack passes a MediaErrorDetail with { code, message, mediaError? }.
     // code maps to HTMLMediaElement MediaError codes:
@@ -677,6 +730,8 @@ function Mp4VidstackPlayer({ streams, proxyBase, languages, dubs, currentSubject
           crossOrigin={usingProxy ? "" : undefined}
           onCanPlay={handleCanPlay}
           onError={handleError}
+          onWaiting={handleWaiting}
+          onPlaying={handlePlaying}
           className="w-full h-full"
         >
           <MediaProvider>
