@@ -8,6 +8,7 @@ import {
   bffGetSubjectDetail,
   bffGetSeasonInfo,
   bffSearchSubtitles,
+  bffGetStreamCaptions,
   bffSearch,
   bffEmailLogin,
   bffGetResourceFromSearch,
@@ -109,6 +110,8 @@ const ALLOWED_BFF_PATHS = new Set([
   "/wefeed-mobile-bff/subject-api/subtitle-search",
   "/wefeed-mobile-bff/subject-api/play-info",
   "/wefeed-mobile-bff/subject-api/resource",
+  "/wefeed-mobile-bff/subject-api/get-stream-captions",
+  "/wefeed-mobile-bff/subject-api/get-ext-captions",
 ]);
 
 router.all("/bff-sign", async (req: Request, res: Response) => {
@@ -355,12 +358,35 @@ router.get("/stream/mb-stream", async (req: Request, res: Response) => {
         const detail = await detailTimeout;
         if (detail?.dubs) dubs = detail.dubs;
       } catch {}
-      try {
-        subs = await Promise.race([
-          bffSearchSubtitles(subjectId),
-          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("sub timeout")), 2000)),
-        ]);
-      } catch {}
+      // Primary caption source (discovered via APK decompile): pass the H5
+      // stream id to get-stream-captions. Returns CDN-signed .srt URLs in many
+      // languages — same data the official MovieBox player uses.
+      const primaryStreamId = String(normalizedStreams[0]?.id || "");
+      if (primaryStreamId) {
+        try {
+          const streamCaps = await Promise.race([
+            bffGetStreamCaptions(
+              primaryStreamId,
+              currentSubjectId || subjectId,
+              actualSe,
+              actualEp,
+            ),
+            new Promise<never>((_, rej) => setTimeout(() => rej(new Error("stream-caps timeout")), 3000)),
+          ]);
+          if (streamCaps.length > 0) {
+            subs = streamCaps.map((c) => ({ lan: c.lan, lanName: c.lanName, url: c.url }));
+          }
+        } catch {}
+      }
+      // Fallbacks if the new endpoint somehow returned empty.
+      if (subs.length === 0) {
+        try {
+          subs = await Promise.race([
+            bffSearchSubtitles(subjectId),
+            new Promise<never>((_, rej) => setTimeout(() => rej(new Error("sub timeout")), 2000)),
+          ]);
+        } catch {}
+      }
       if (subs.length === 0) {
         try {
           const resResult = await Promise.race([

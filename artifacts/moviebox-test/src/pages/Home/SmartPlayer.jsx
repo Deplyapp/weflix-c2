@@ -797,9 +797,8 @@ const SmartPlayer = ({ subjectId, type, season, episode, title, year, onClose, o
   }, [isFullscreen]);
 
   const parseStreamResponse = useCallback((data, sid) => {
-    if (data?.subtitles?.length > 0) {
-      setSubtitles(data.subtitles);
-    }
+    const subs = Array.isArray(data?.subtitles) ? data.subtitles : [];
+    if (subs.length > 0) setSubtitles(subs);
     if (data?.type === "mp4" && data.streams?.length > 0) {
       return {
         kind: "mp4",
@@ -808,11 +807,15 @@ const SmartPlayer = ({ subjectId, type, season, episode, title, year, onClose, o
         dubs: data.dubs || [],
         currentSubjectId: data.currentSubjectId || sid,
         proxyBase: data.proxyBase ?? "",
+        // Include subtitles so cache hits (below) can rehydrate the CC menu
+        // without needing a second network call to the stream endpoint.
+        subtitles: subs,
       };
     } else if (data?.type === "hls" && data.streamUrl) {
       return {
         kind: "hls",
         streamUrl: data.streamUrl,
+        subtitles: subs,
       };
     }
     return null;
@@ -834,6 +837,10 @@ const SmartPlayer = ({ subjectId, type, season, episode, title, year, onClose, o
     mp4RecoveryInFlight.current = false;
 
     if (cached) {
+      // Restore captions from cache so reopening a title preserves the rich
+      // stream-captions list (otherwise the legacy fallback would replace it
+      // with whatever the subject-search endpoint returns — usually nothing).
+      if (cached.subtitles?.length > 0) setSubtitles(cached.subtitles);
       setStreamData(cached);
       setInitialLoading(false);
       setSwapping(false);
@@ -870,15 +877,28 @@ const SmartPlayer = ({ subjectId, type, season, episode, title, year, onClose, o
     return () => controller.abort();
   }, [subjectId, type, season, episode, parseStreamResponse]);
 
+  // Reset captions when the playing item changes so we don't show the previous
+  // title's CC list while the new stream resolves.
+  useEffect(() => {
+    setSubtitles([]);
+  }, [subjectId, season, episode]);
+
+  // Legacy fallback: only fire if mb-stream did NOT return captions. The
+  // primary source is now /stream/mb-stream which calls the decompiled
+  // get-stream-captions endpoint and returns rich, signed CDN .srt URLs;
+  // this legacy subject-level search is almost always empty for our account
+  // and would otherwise overwrite the rich list with nothing.
   useEffect(() => {
     if (!subjectId) return;
+    if (!streamData) return; // wait for stream to resolve first
+    if (subtitles.length > 0) return; // stream gave us captions, don't override
     let cancelled = false;
-    setSubtitles([]);
     fetchMbSubtitles(subjectId, title)
       .then((subs) => { if (!cancelled && subs?.length > 0) setSubtitles(subs); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [subjectId, title, season, episode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subjectId, title, season, episode, streamData]);
 
   const handleMp4Error = useCallback(() => {
     if (mp4RecoveryInFlight.current) return;

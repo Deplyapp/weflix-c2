@@ -578,6 +578,55 @@ export async function bffSearchSubtitles(
   }
 }
 
+export interface BffStreamCaption {
+  id: string;
+  lan: string;
+  lanName: string;
+  url: string;
+  size?: string;
+  delay?: number;
+}
+
+/**
+ * Fetch external captions associated with a specific stream.
+ *
+ * Endpoint discovered via APK decompilation. The mobile app calls this AFTER
+ * play-info returns a stream, passing the stream's `id` field as `streamId`.
+ * Unlike `subtitle-search` (which is empty for our bot account), this endpoint
+ * returns the full set of CDN-signed .srt URLs in many languages — the same
+ * data the official MovieBox player uses for its CC menu.
+ *
+ * Auth note: this endpoint succeeds for our bot account because the streamId
+ * itself is the only authorisation it requires (and we can mint streamIds via
+ * the public H5 play endpoint).
+ */
+export async function bffGetStreamCaptions(
+  streamId: string,
+  subjectId: string,
+  se: number = 0,
+  ep: number = 0,
+): Promise<BffStreamCaption[]> {
+  try {
+    const query =
+      `streamId=${encodeURIComponent(streamId)}` +
+      `&subjectId=${encodeURIComponent(subjectId)}` +
+      `&se=${se}&ep=${ep}`;
+    const result = await bffRequestWithAuth(
+      "GET",
+      "/wefeed-mobile-bff/subject-api/get-stream-captions",
+      query,
+    );
+    const data = result?.data as { extCaptions?: BffStreamCaption[] };
+    return data?.extCaptions || [];
+  } catch (err) {
+    logger.error(
+      { err: String(err), streamId, subjectId },
+      "BFF get-stream-captions failed",
+    );
+    return [];
+  }
+}
+
 export interface BffResourceDetectorResolution {
   title: string;
   size: string;
