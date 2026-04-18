@@ -31,18 +31,21 @@ const router: IRouter = Router();
 
 const STREAM_PROXY_URL = process.env.STREAM_PROXY_URL || process.env.CF_STREAM_PROXY_URL || "";
 const SUBTITLE_PROXY_URL = process.env.SUBTITLE_PROXY_URL || process.env.CF_SUBTITLE_PROXY_URL || "";
-// Hard kill switches. Set STREAM_PROXY_ENABLED=false (or SUBTITLE_PROXY_ENABLED=false)
-// to bypass ALL proxying and let the browser hit the raw CDN URL directly.
-// Useful if you want to test direct-CDN performance, or if the proxy is the
-// bottleneck. WARNING: subtitle CDN has no CORS headers — disabling subtitle
-// proxy will break captions in most browsers.
-const STREAM_PROXY_ENABLED = (process.env.STREAM_PROXY_ENABLED ?? "true").toLowerCase() !== "false";
-const SUBTITLE_PROXY_ENABLED = (process.env.SUBTITLE_PROXY_ENABLED ?? "true").toLowerCase() !== "false";
+// Mode switch — pick which proxy to use without deleting URLs.
+//   "cf"   → use the external Cloudflare Worker URL (requires *_PROXY_URL set)
+//   "self" → use this server's own /api/stream/proxy (eats Koyeb bandwidth)
+// Default: "cf" if the corresponding *_PROXY_URL is set, else "self".
+function resolveMode(envValue: string | undefined, hasUrl: boolean): "cf" | "self" {
+  const v = (envValue ?? "").toLowerCase().trim();
+  if (v === "cf" || v === "self") return v;
+  return hasUrl ? "cf" : "self";
+}
+const STREAM_PROXY_MODE = resolveMode(process.env.STREAM_PROXY_MODE, !!STREAM_PROXY_URL);
+const SUBTITLE_PROXY_MODE = resolveMode(process.env.SUBTITLE_PROXY_MODE, !!SUBTITLE_PROXY_URL);
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 function getServerProxyBase(req: Request): string {
-  if (!STREAM_PROXY_ENABLED) return "";
-  if (STREAM_PROXY_URL) {
+  if (STREAM_PROXY_MODE === "cf" && STREAM_PROXY_URL) {
     return STREAM_PROXY_URL;
   }
   const proto = req.headers["x-forwarded-proto"] ?? req.protocol ?? "https";
@@ -52,15 +55,18 @@ function getServerProxyBase(req: Request): string {
 
 function wrapSubtitleUrls<T extends { url?: string }>(subs: T[] | undefined, req?: Request): T[] {
   if (!subs || subs.length === 0) return subs || [];
-  // Hard kill switch — return raw CDN URLs (will only work if those CDNs
-  // happen to send CORS headers, which most don't).
-  if (!SUBTITLE_PROXY_ENABLED) return subs;
   // Subtitle CDNs (pbcdn.aoneroom.com, etc) don't send CORS headers, so the
   // browser cannot fetch SRT/VTT files directly via Vidstack <Track>. Always
-  // route through our own proxy (which sets Access-Control-Allow-Origin: *).
-  const base = SUBTITLE_PROXY_URL
-    ? SUBTITLE_PROXY_URL.replace(/\/+$/, "")
-    : (req ? getServerProxyBase(req).replace(/\/+$/, "") : "");
+  // route through a proxy (CF Worker or self) which sets CORS headers.
+  let base = "";
+  if (SUBTITLE_PROXY_MODE === "cf" && SUBTITLE_PROXY_URL) {
+    base = SUBTITLE_PROXY_URL.replace(/\/+$/, "");
+  } else if (req) {
+    // self mode — use this server's own /api/stream/proxy
+    const proto = req.headers["x-forwarded-proto"] ?? req.protocol ?? "https";
+    const host = req.headers["x-forwarded-host"] ?? req.headers.host ?? "";
+    base = `${proto}://${host}/api/stream/proxy`;
+  }
   if (!base) return subs;
   return subs.map((s) => {
     if (!s.url || typeof s.url !== "string" || !s.url.startsWith("http")) return s;
@@ -104,8 +110,7 @@ const EMBED_VIDSRC = {
 };
 
 function getProxyBase(req: Request): string {
-  if (!STREAM_PROXY_ENABLED) return "";
-  if (STREAM_PROXY_URL) {
+  if (STREAM_PROXY_MODE === "cf" && STREAM_PROXY_URL) {
     return STREAM_PROXY_URL;
   }
   const proto = req.headers["x-forwarded-proto"] ?? req.protocol ?? "https";

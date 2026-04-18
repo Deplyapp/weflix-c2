@@ -49,23 +49,28 @@ app.listen(port, (err) => {
 
   const streamProxy = process.env.STREAM_PROXY_URL || process.env.CF_STREAM_PROXY_URL || "";
   const subtitleProxy = process.env.SUBTITLE_PROXY_URL || process.env.CF_SUBTITLE_PROXY_URL || "";
-  const streamProxyEnabled = (process.env.STREAM_PROXY_ENABLED ?? "true").toLowerCase() !== "false";
-  const subtitleProxyEnabled = (process.env.SUBTITLE_PROXY_ENABLED ?? "true").toLowerCase() !== "false";
+  const resolveMode = (envValue: string | undefined, hasUrl: boolean): "cf" | "self" => {
+    const v = (envValue ?? "").toLowerCase().trim();
+    if (v === "cf" || v === "self") return v;
+    return hasUrl ? "cf" : "self";
+  };
+  const streamMode = resolveMode(process.env.STREAM_PROXY_MODE, !!streamProxy);
+  const subtitleMode = resolveMode(process.env.SUBTITLE_PROXY_MODE, !!subtitleProxy);
 
-  if (!streamProxyEnabled) {
-    logger.warn("Stream proxy: DISABLED (STREAM_PROXY_ENABLED=false) — browser will hit MovieBox CDN directly");
-  } else if (streamProxy) {
-    logger.info({ streamProxy }, "Stream proxy: using external CF Worker");
+  if (streamMode === "cf" && streamProxy) {
+    logger.info({ streamProxy, mode: "cf" }, "Stream proxy: using external CF Worker");
+  } else if (streamMode === "cf" && !streamProxy) {
+    logger.warn("Stream proxy: STREAM_PROXY_MODE=cf but no STREAM_PROXY_URL set — falling back to self proxy");
   } else {
-    logger.info("Stream proxy: using server's own /api/stream/proxy (no STREAM_PROXY_URL set)");
+    logger.info({ mode: "self" }, "Stream proxy: using server's own /api/stream/proxy");
   }
 
-  if (!subtitleProxyEnabled) {
-    logger.warn("Subtitle proxy: DISABLED (SUBTITLE_PROXY_ENABLED=false) — captions will likely fail (no CORS on subtitle CDN)");
-  } else if (subtitleProxy) {
-    logger.info({ subtitleProxy }, "Subtitle proxy: using external CF Worker");
+  if (subtitleMode === "cf" && subtitleProxy) {
+    logger.info({ subtitleProxy, mode: "cf" }, "Subtitle proxy: using external CF Worker");
+  } else if (subtitleMode === "cf" && !subtitleProxy) {
+    logger.warn("Subtitle proxy: SUBTITLE_PROXY_MODE=cf but no SUBTITLE_PROXY_URL set — falling back to self proxy");
   } else {
-    logger.info("Subtitle proxy: using server's own /api/stream/proxy (no SUBTITLE_PROXY_URL set)");
+    logger.info({ mode: "self" }, "Subtitle proxy: using server's own /api/stream/proxy");
   }
 
   probeDirectAccess()
