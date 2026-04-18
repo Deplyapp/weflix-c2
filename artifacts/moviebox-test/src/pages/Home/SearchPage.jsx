@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { toDetailPath } from './urlUtils';
 import { FaSearch, FaTimes } from 'react-icons/fa';
 import ContentCard from './ContentCard';
@@ -127,12 +126,7 @@ function SearchPage() {
   const showLoadingMore = isLoading && items.length > 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
-      className="min-h-screen bg-[#0a0c12] px-4 sm:px-6 pt-6 pb-20"
-    >
+    <div className="min-h-screen bg-[#0a0c12] px-4 sm:px-6 pt-6 pb-20">
       <SEO
         title="Search Movies & TV Shows — PopCorn TV"
         description="Search for movies and TV shows to stream free on PopCorn TV."
@@ -183,27 +177,21 @@ function SearchPage() {
             {items.map((item, index) => {
               const mediaType = item.subjectType !== 1 ? 'tv' : 'movie';
               return (
-                <motion.div
+                <ContentCard
                   key={`${item.subjectId}-${index}`}
-                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.26, ease: 'easeOut', delay: Math.min(index, 14) * 0.018 }}
-                >
-                  <ContentCard
-                    title={item.title}
-                    poster={mbCoverUrl(item.cover, 300)}
-                    rating={item.rating ? parseFloat(item.rating) : null}
-                    releaseDate={item.releaseDate}
-                    onClick={() => {
-                      const from = debouncedQuery.trim()
-                        ? `/search?q=${encodeURIComponent(debouncedQuery.trim())}`
-                        : '/search';
-                      navigate(toDetailPath(mediaType, item.subjectId, item.title), { state: { from } });
-                    }}
-                    mediaId={item.subjectId}
-                    mediaType={mediaType}
-                  />
-                </motion.div>
+                  title={item.title}
+                  poster={mbCoverUrl(item.cover, 300)}
+                  rating={item.rating ? parseFloat(item.rating) : null}
+                  releaseDate={item.releaseDate}
+                  onClick={() => {
+                    const from = debouncedQuery.trim()
+                      ? `/search?q=${encodeURIComponent(debouncedQuery.trim())}`
+                      : '/search';
+                    navigate(toDetailPath(mediaType, item.subjectId, item.title), { state: { from } });
+                  }}
+                  mediaId={item.subjectId}
+                  mediaType={mediaType}
+                />
               );
             })}
           </div>
@@ -217,7 +205,7 @@ function SearchPage() {
           </div>
         )}
       </section>
-    </motion.div>
+    </div>
   );
 }
 

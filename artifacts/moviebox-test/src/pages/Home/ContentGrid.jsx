@@ -1,6 +1,5 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-import { motion } from 'framer-motion';
 import ContentCard from './ContentCard';
 import { fetchMbSearch, mbCoverUrl } from './Fetcher';
 import { BiWifi } from 'react-icons/bi';
@@ -77,25 +76,19 @@ const ContentGrid = ({ type, onSelect, onReset }) => {
         ? Array.from({ length: 14 }).map((_, i) => (
             <Skeleton key={i} className="aspect-[2/3] w-full" rounded="rounded-xl" />
           ))
-        : items.map((item, index) => {
+        : items.map((item) => {
             const mediaType = item.subjectType !== 1 ? 'tv' : 'movie';
             return (
-              <motion.div
+              <ContentCard
                 key={item.subjectId}
-                initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.26, ease: 'easeOut', delay: Math.min(index, 14) * 0.018 }}
-              >
-                <ContentCard
-                  title={item.title}
-                  poster={mbCoverUrl(item.cover, 300)}
-                  rating={item.rating ? parseFloat(item.rating) : null}
-                  releaseDate={item.releaseDate}
-                  onClick={() => onSelect(item, mediaType)}
-                  mediaId={item.subjectId}
-                  mediaType={mediaType}
-                />
-              </motion.div>
+                title={item.title}
+                poster={mbCoverUrl(item.cover, 300)}
+                rating={item.rating ? parseFloat(item.rating) : null}
+                releaseDate={item.releaseDate}
+                onClick={() => onSelect(item, mediaType)}
+                mediaId={item.subjectId}
+                mediaType={mediaType}
+              />
             );
           })}
     </div>

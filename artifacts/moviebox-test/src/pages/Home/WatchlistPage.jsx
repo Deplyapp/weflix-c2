@@ -1,6 +1,5 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useWatchlist } from '../../context/WatchlistContext';
 import ContentCard from './ContentCard';
 import SEO from './SEO';
@@ -17,12 +16,7 @@ function WatchlistPage() {
   const loading = !ready;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-      className="min-h-screen bg-black text-white px-4 sm:px-8 pt-6 sm:pt-10 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-16"
-    >
+    <div className="min-h-screen bg-black text-white px-4 sm:px-8 pt-6 sm:pt-10 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-16">
       <SEO title="My Watchlist - PopCorn TV" description="View your saved movies and TV shows." />
 
       <div className="flex items-center gap-3 mb-6">
@@ -33,12 +27,7 @@ function WatchlistPage() {
       {/* Not logged in */}
       {!loading && !user && !isGuestMode && (
         <div className="flex items-center justify-center min-h-[60vh]">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="max-w-md w-full mx-auto px-6 text-center"
-          >
+          <div className="max-w-md w-full mx-auto px-6 text-center">
             <div className="flex justify-center mb-8">
               <div className="relative">
                 <div className="w-16 h-16 rounded-2xl bg-red-600/10 border border-red-500/20 flex items-center justify-center">
@@ -57,7 +46,7 @@ function WatchlistPage() {
             >
               Sign in
             </button>
-          </motion.div>
+          </div>
         </div>
       )}
 
@@ -71,12 +60,7 @@ function WatchlistPage() {
       {/* Empty watchlist */}
       {(user || isGuestMode) && !loading && items.length === 0 && (
         <div className="flex items-center justify-center min-h-[60vh]">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="max-w-lg w-full mx-auto px-6"
-          >
+          <div className="max-w-lg w-full mx-auto px-6">
             {/* Horizontal rule with label */}
             <div className="flex items-center gap-4 mb-10">
               <div className="flex-1 h-px bg-gradient-to-r from-transparent to-red-600/30" />
@@ -114,46 +98,32 @@ function WatchlistPage() {
 
             {/* Bottom rule */}
             <div className="mt-10 h-px bg-gradient-to-r from-transparent via-red-600/20 to-transparent" />
-          </motion.div>
+          </div>
         </div>
       )}
 
       {(user || isGuestMode) && items.length > 0 && (
-        <motion.div layout className={GRID_CLASSES}>
-          <AnimatePresence mode="popLayout">
-            {items.map((item, index) => (
-              <motion.div
-                key={item.id}
-                layout
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
-                transition={{
-                  duration: 0.3,
-                  ease: [0.22, 1, 0.36, 1],
-                  delay: Math.min(index, 20) * 0.03,
-                }}
-              >
-                <ContentCard
-                  title={item.title}
-                  poster={item.poster_path || '/placeholder.svg'}
-                  rating={item.vote_average}
-                  releaseDate={item.release_date || item.addedAt}
-                  onClick={() => {
-                    navigate(toDetailPath(item.type, item.mediaId, item.title), { state: { from: '/watchlist' } });
-                  }}
-                  mediaId={item.mediaId}
-                  mediaType={item.type}
-                  posterPath={item.poster_path}
-                  voteAverage={item.vote_average}
-                  isWatchlistPage={true}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+        <div className={GRID_CLASSES}>
+          {items.map((item) => (
+            <ContentCard
+              key={item.id}
+              title={item.title}
+              poster={item.poster_path || '/placeholder.svg'}
+              rating={item.vote_average}
+              releaseDate={item.release_date || item.addedAt}
+              onClick={() => {
+                navigate(toDetailPath(item.type, item.mediaId, item.title), { state: { from: '/watchlist' } });
+              }}
+              mediaId={item.mediaId}
+              mediaType={item.type}
+              posterPath={item.poster_path}
+              voteAverage={item.vote_average}
+              isWatchlistPage={true}
+            />
+          ))}
+        </div>
       )}
-    </motion.div>
+    </div>
   );
 }
 
