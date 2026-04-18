@@ -306,7 +306,7 @@ function CaptionsSelector({ playerRef, subtitles }) {
 }
 
 const isProduction = import.meta.env.PROD;
-let directCdnMode = false;
+let directCdnMode = true;
 
 function buildVideoSources(streamList, proxyBase, forceProxy) {
   if (!streamList || streamList.length === 0) return [];
