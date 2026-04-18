@@ -36,15 +36,6 @@ All packages are configured as TypeScript composite projects, extending a shared
 
 ## UI/UX and Client Applications
 
-### WeFlix Mobile (WebView shell)
-- Separate Expo artifact at `artifacts/weflix-mobile/` (preview path `/weflix-mobile/`, port 18448).
-- Thin native WebView wrapper around the WeFlix C2 web app (`artifacts/moviebox-test`). All product logic lives in the web app — the shell only provides chrome (status bar, splash, hardware back, pull-to-refresh, offline screen, fullscreen video).
-- **Dev/Prod swap point**: `artifacts/weflix-mobile/constants/config.ts` — flip the `USE_PRODUCTION` boolean. Dev points at `https://${EXPO_PUBLIC_DOMAIN}/`; prod points at `PRODUCTION_URL` (set to `https://weflix.replit.app/` placeholder, edit when the real prod domain is known).
-- Off-host links open in the system browser via `expo-web-browser`. Hardware back on Android navigates WebView history before exiting. Offline state shown via `expo-network` with a Retry that re-checks connectivity and remounts the WebView.
-- WeFlix red `#E50914` on `#0B0B0B` black for splash/status bar; portrait-locked at the app level, fullscreen video uses the WebView's native fullscreen path.
-- Strict isolation: never modify `artifacts/moviebox-test` (c2) when working on this artifact.
-- Replaces the previous `kaizen-mobile` artifact (deleted).
-
 ### WeFlix (Legacy)
 - Served at `/weflix/`.
 - Mobile-first design with a smart header for small screens and a sidebar for desktop.
@@ -71,10 +62,14 @@ All packages are configured as TypeScript composite projects, extending a shared
     - `Toast` (`ToastProvider` + `useToast()`) — iOS-style stack mounted in `main.jsx`. Used by `WatchlistContext` (add/remove feedback) and `AuthModal` (sign-in / Google / password-reset success + error). `window.__toast` bridge available for non-React modules.
     - `BottomSheet` — drag-to-dismiss mobile sheet / desktop modal. `AuthModal` consumes it.
     - `ScrollToTopButton` — extracted from `ParentComponent`; configurable `showAfter` threshold.
-- **Scroll/image perf baseline** (Task #117):
+- **Scroll/image perf baseline** (Task #117 + iOS-smooth pass):
     - Native scroll only — no global `scroll-behavior: smooth`. Programmatic `scrollTo({ behavior: 'smooth' })` (e.g. `ScrollToTopButton`, row arrow buttons) still works.
     - Card classes (`.pcw-card`, `.card-hover-lift`) carry `transition: transform` but **no** always-on `will-change` (avoids per-card layer-explosion).
-    - `content-visibility: auto` was tried on off-screen rows but caused jumpy/stuck scrolling on iOS WebView (the WeFlix mobile shell) and was reverted. The `.row-deferred` class still exists but is a no-op; off-screen-only deferral is on hold until we can gate it behind a non-WebView feature flag.
+    - Horizontal carousel rows use `.card-row` with `touch-action: pan-x` so they only claim sideways gestures; cards inside use `touch-action: pan-y pinch-zoom` so a finger that lands on a poster still scrolls the page vertically. Inner control buttons (watchlist `+`) keep `touch-action: manipulation`. Trending row uses `snap-proximity` (not `mandatory`) for a softer iOS-style snap.
+    - Poster fade-in is opacity + 1.01 → 1 scale only — the `filter: blur(6px)` pass was removed (it caused mobile-GPU jank during scroll).
+    - `html, body { overscroll-behavior-y: contain; }` so only the document edges rubber-band, not every inner scroller.
+    - Hero banner skeleton uses one shared `Skeleton` block (one shimmer timer) instead of six concurrent `animate-pulse` divs.
+    - `content-visibility: auto` was tried on off-screen rows but caused jumpy/stuck scrolling on iOS WebView and was reverted. The `.row-deferred` class still exists but is a no-op; off-screen-only deferral is on hold until we can gate it behind a feature flag.
     - Eager / `fetchPriority="high"` poster loading is restricted to the first 5 cards of the first row only; everything else is `loading="lazy"`. `<img>` carries intrinsic `width={300} height={450}`.
     - `HeroBanner` slide-rotation `setInterval` is paused via `IntersectionObserver` when the hero scrolls out of view, and via `visibilitychange` when the tab is hidden.
     - Route cross-fade is opacity-only (180ms `easeOut`, no `y` translate); `useReducedMotion` still bypasses the animation.

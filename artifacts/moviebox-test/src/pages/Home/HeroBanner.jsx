@@ -4,6 +4,7 @@ import { toDetailPath } from './urlUtils';
 import { FaPlay, FaInfoCircle, FaStar } from 'react-icons/fa';
 import { BiCalendar } from 'react-icons/bi';
 import { fetchHome, normalizeHomeSection, mbCoverUrl } from './Fetcher';
+import SharedSkeleton from '../../components/Skeleton';
 
 const INTERVAL = 7000;
 
@@ -80,23 +81,27 @@ function useImagePreloader(src) {
   return ready;
 }
 
+// Single-shimmer hero skeleton. Previously each placeholder ran its own
+// `animate-pulse` — six concurrent timers and six paint regions on a
+// full-bleed hero. Now one Skeleton block backs the whole hero and the
+// foreground placeholders are static dim shapes (no animation).
 const Skeleton = () => (
   <div className="relative w-full h-[80vh] md:h-[90vh] lg:h-screen overflow-hidden bg-[#0a0c12]">
-    <div className="absolute inset-0 bg-gradient-to-r from-[#0a0c12] via-[#121826] to-[#0a0c12] opacity-70 animate-pulse" />
+    <SharedSkeleton className="absolute inset-0" rounded="rounded-none" />
     <div className="absolute inset-0 bg-gradient-to-t from-[#0a0c12] via-transparent to-black/35" />
     <div className="relative z-10 h-full flex flex-col justify-end md:justify-center px-6 md:px-14 pb-24 md:pb-20 max-w-2xl">
-      <div className="w-24 h-7 rounded-full bg-white/[0.08] mb-4 animate-pulse" />
+      <div className="w-24 h-7 rounded-full bg-white/[0.08] mb-4" />
       <div className="space-y-3 mb-5">
-        <div className="h-12 md:h-14 w-[85%] rounded-lg bg-white/[0.09] animate-pulse" />
-        <div className="h-12 md:h-14 w-[65%] rounded-lg bg-white/[0.08] animate-pulse" />
+        <div className="h-12 md:h-14 w-[85%] rounded-lg bg-white/[0.09]" />
+        <div className="h-12 md:h-14 w-[65%] rounded-lg bg-white/[0.08]" />
       </div>
       <div className="flex gap-2 mb-6">
-        <div className="h-4 w-20 rounded-full bg-white/[0.08] animate-pulse" />
-        <div className="h-4 w-16 rounded-full bg-white/[0.07] animate-pulse" />
+        <div className="h-4 w-20 rounded-full bg-white/[0.08]" />
+        <div className="h-4 w-16 rounded-full bg-white/[0.07]" />
       </div>
       <div className="flex items-center gap-3">
-        <div className="h-12 w-40 rounded-full bg-white/[0.12] animate-pulse" />
-        <div className="h-12 w-36 rounded-full bg-white/[0.09] animate-pulse" />
+        <div className="h-12 w-40 rounded-full bg-white/[0.12]" />
+        <div className="h-12 w-36 rounded-full bg-white/[0.09]" />
       </div>
     </div>
   </div>
