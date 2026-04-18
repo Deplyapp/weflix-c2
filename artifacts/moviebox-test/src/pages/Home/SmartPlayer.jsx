@@ -376,8 +376,70 @@ function Mp4VidstackPlayer({ streams, proxyBase, languages, dubs, currentSubject
   // MovieBox app silently seeks past it, so we do the same instead of
   // surfacing "Stream not available".
   const decodeRecoveryRef = useRef({ attempts: 0, lastErrorAt: 0 });
+  // Decoder-stall watchdog. Some browsers freeze (without firing `error`)
+  // when they hit a corrupt frame the decoder can't recover from. We poll
+  // every 1s and only intervene when:
+  //   - playback is active (not paused, seeking, or ended)
+  //   - the decoder has buffered data well past currentTime (proves it's
+  //     not a network problem — bytes are downloaded but won't decode)
+  //   - currentTime hasn't advanced for >=2.5s
+  // When all three hold, we jump 4s forward to skip past the corrupt frames.
+  const stallRef = useRef({ lastTime: 0, stuckSince: 0, attempts: 0, lastResetTime: 0 });
 
   const activeProxyBase = proxyBase || "";
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const p = playerRef.current;
+      if (!p) return;
+      const state = p.state;
+      if (!state || !state.canPlay) return;
+      if (state.paused || state.seeking || state.ended) {
+        stallRef.current.lastTime = state.currentTime || 0;
+        stallRef.current.stuckSince = 0;
+        return;
+      }
+      const ct = state.currentTime || 0;
+      if (Math.abs(ct - stallRef.current.lastTime) < 0.05) {
+        // Time hasn't moved. Check whether we have buffered data ahead of
+        // currentTime — if yes, it's a decoder choke; if no, just network.
+        const buffered = state.buffered;
+        let ahead = 0;
+        if (buffered && buffered.length) {
+          for (let i = 0; i < buffered.length; i++) {
+            try {
+              const start = buffered.start(i);
+              const end = buffered.end(i);
+              if (start <= ct + 0.5 && end > ct) {
+                ahead = end - ct;
+                break;
+              }
+            } catch {}
+          }
+        }
+        if (ahead >= 2) {
+          if (!stallRef.current.stuckSince) stallRef.current.stuckSince = Date.now();
+          else if (Date.now() - stallRef.current.stuckSince >= 2500 && stallRef.current.attempts < 4) {
+            stallRef.current.attempts += 1;
+            try { p.currentTime = ct + 4; } catch {}
+            stallRef.current.stuckSince = 0;
+          }
+        } else {
+          stallRef.current.stuckSince = 0;
+        }
+      } else {
+        stallRef.current.lastTime = ct;
+        stallRef.current.stuckSince = 0;
+        // Reset attempt counter after 10s of clean playback so a later
+        // glitch later in the file gets its own recovery budget.
+        if (ct - stallRef.current.lastResetTime > 10) {
+          stallRef.current.attempts = 0;
+          stallRef.current.lastResetTime = ct;
+        }
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -396,6 +458,7 @@ function Mp4VidstackPlayer({ streams, proxyBase, languages, dubs, currentSubject
     savedTimeRef.current = 0;
     isLangSwitchRef.current = false;
     decodeRecoveryRef.current = { attempts: 0, lastErrorAt: 0 };
+    stallRef.current = { lastTime: 0, stuckSince: 0, attempts: 0, lastResetTime: 0 };
     const shouldProxy = directCdnMode === false;
     setUsingProxy(shouldProxy);
     const sources = buildVideoSources(streams, proxyBase || "", shouldProxy);
