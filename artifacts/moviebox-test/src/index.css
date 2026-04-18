@@ -47,6 +47,28 @@ html, body {
   letter-spacing: var(--tracking-tight);
 }
 
+/* App-feel: disable accidental text selection on long-press / drag.
+   Inputs, textareas, and explicit `.selectable` text re-enable it so the
+   user can still type, paste, and copy where it actually matters. The #1
+   "this is a website" tell on mobile is highlighting random text when you
+   try to tap or scroll — killing it here makes everything feel native. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+input, textarea, [contenteditable="true"], .selectable, .selectable * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Posters and inline images: no "Save image" / "Open in new tab" popup
+   when the user holds their finger on a card. */
+img {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
 /* Kill the iOS/Android grey tap flash globally — affects only the highlight, safe for text. */
 * {
   -webkit-tap-highlight-color: transparent;

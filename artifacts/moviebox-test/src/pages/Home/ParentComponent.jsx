@@ -103,8 +103,9 @@ function ParentComponent() {
         </footer>}
       </div>
 
-      {/* Mobile bottom navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#070b14] border-t border-white/[0.08] shadow-[0_-10px_30px_rgba(0,0,0,0.55)] flex items-center justify-around px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.45rem)]">
+      {/* Mobile bottom navigation — translucent frosted-glass like iOS tab bar.
+          backdrop-blur is GPU-cheap because the nav is a small fixed element. */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#070b14]/80 backdrop-blur-xl backdrop-saturate-150 border-t border-white/[0.06] flex items-center justify-around px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.45rem)]">
         <LayoutGroup id="bottom-nav">
         {[
           { id: 'home',   icon: BiHomeAlt,   label: 'Home'    },
