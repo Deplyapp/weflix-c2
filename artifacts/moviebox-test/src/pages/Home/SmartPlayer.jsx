@@ -60,7 +60,15 @@ export function preResolveStream(subjectId, type, season, episode) {
 
 async function enterFullscreenLandscape(el) {
   try {
-    const target = el || document.documentElement;
+    // Always target the SmartPlayer overlay (fixed inset-0). Falling back to
+    // documentElement breaks badly when the page is scrolled — Chrome
+    // fullscreens the whole document at the current scroll position, showing
+    // the player as a "cut" sliver. The .smart-player-root selector finds the
+    // overlay regardless of which details page rendered it.
+    const target =
+      el ||
+      document.querySelector(".smart-player-root") ||
+      document.documentElement;
     if (target.requestFullscreen) {
       await target.requestFullscreen();
     } else if (target.webkitRequestFullscreen) {
