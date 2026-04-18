@@ -9,6 +9,7 @@ import {
   bffGetSeasonInfo,
   bffSearchSubtitles,
   bffGetStreamCaptions,
+  bffGetExtCaptions,
   bffSearch,
   bffEmailLogin,
   bffGetResourceFromSearch,
@@ -358,24 +359,42 @@ router.get("/stream/mb-stream", async (req: Request, res: Response) => {
         const detail = await detailTimeout;
         if (detail?.dubs) dubs = detail.dubs;
       } catch {}
-      // Primary caption source (discovered via APK decompile): pass the H5
-      // stream id to get-stream-captions. Returns CDN-signed .srt URLs in many
-      // languages — same data the official MovieBox player uses.
+      // Primary caption sources (discovered via APK decompile of MovieBox
+      // v3.0.13). The official player calls TWO endpoints in parallel and
+      // unions the results — that's why their CC menu shows captions even
+      // for episodes where one endpoint returns empty. We do the same:
+      //   1. get-stream-captions  (keyed by streamId + subjectId + se/ep)
+      //   2. get-ext-captions     (keyed by resourceId = streamId, + se/ep)
+      // Either may be empty for a given episode; the union is what the app
+      // shows. Captions are deduped by ISO language code, preferring the
+      // first-seen URL (stream-captions usually has slightly cleaner names).
       const primaryStreamId = String(normalizedStreams[0]?.id || "");
       if (primaryStreamId) {
         try {
-          const streamCaps = await Promise.race([
-            bffGetStreamCaptions(
-              primaryStreamId,
-              currentSubjectId || subjectId,
-              actualSe,
-              actualEp,
-            ),
-            new Promise<never>((_, rej) => setTimeout(() => rej(new Error("stream-caps timeout")), 3000)),
+          const [streamCaps, extCaps] = await Promise.all([
+            Promise.race([
+              bffGetStreamCaptions(
+                primaryStreamId,
+                currentSubjectId || subjectId,
+                actualSe,
+                actualEp,
+              ),
+              new Promise<never>((_, rej) => setTimeout(() => rej(new Error("stream-caps timeout")), 3500)),
+            ]).catch(() => []),
+            Promise.race([
+              bffGetExtCaptions(primaryStreamId, actualSe, actualEp),
+              new Promise<never>((_, rej) => setTimeout(() => rej(new Error("ext-caps timeout")), 3500)),
+            ]).catch(() => []),
           ]);
-          if (streamCaps.length > 0) {
-            subs = streamCaps.map((c) => ({ lan: c.lan, lanName: c.lanName, url: c.url }));
+          const seen = new Set<string>();
+          const merged: Array<{ lan: string; lanName: string; url: string }> = [];
+          for (const c of [...streamCaps, ...extCaps]) {
+            const key = (c.lan || c.lanName || c.url).toLowerCase();
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            merged.push({ lan: c.lan, lanName: c.lanName, url: c.url });
           }
+          if (merged.length > 0) subs = merged;
         } catch {}
       }
       // Fallbacks if the new endpoint somehow returned empty.

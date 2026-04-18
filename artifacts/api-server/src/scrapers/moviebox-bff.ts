@@ -627,6 +627,42 @@ export async function bffGetStreamCaptions(
   }
 }
 
+/**
+ * Fetch captions via the second hidden endpoint discovered in the APK:
+ * `/wefeed-mobile-bff/subject-api/get-ext-captions`.
+ *
+ * It takes a `resourceId` (any of the per-quality stream ids returned by
+ * H5 play works) plus se/ep. Empirically this endpoint is broader than
+ * `get-stream-captions`: for many episodes (e.g. Classroom of the Elite
+ * S2/S3/S4) get-stream-captions returns `[]` while get-ext-captions
+ * returns 10–16 language tracks. The official MovieBox player calls both
+ * and unions the results, which is why captions show up in their app
+ * even when our primary source is empty.
+ */
+export async function bffGetExtCaptions(
+  resourceId: string,
+  se: number = 0,
+  ep: number = 0,
+): Promise<BffStreamCaption[]> {
+  try {
+    const query =
+      `resourceId=${encodeURIComponent(resourceId)}` + `&se=${se}&ep=${ep}`;
+    const result = await bffRequestWithAuth(
+      "GET",
+      "/wefeed-mobile-bff/subject-api/get-ext-captions",
+      query,
+    );
+    const data = result?.data as { extCaptions?: BffStreamCaption[] };
+    return data?.extCaptions || [];
+  } catch (err) {
+    logger.error(
+      { err: String(err), resourceId },
+      "BFF get-ext-captions failed",
+    );
+    return [];
+  }
+}
+
 export interface BffResourceDetectorResolution {
   title: string;
   size: string;
