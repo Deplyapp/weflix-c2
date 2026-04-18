@@ -139,6 +139,57 @@ export async function fetchMbSeasons(subjectId) {
 }
 
 export async function fetchMbStream(subjectId, type, se, ep, title) {
+  // TEMP DEBUG: try BFF play-info browser-direct first (residential IP can reach it; datacenter cannot).
+  if (isClientBffEnabled()) {
+    const t0 = Date.now();
+    try {
+      const seNum = type === 'tv' ? (se || 1) : 0;
+      const epNum = type === 'tv' ? (ep || 1) : 0;
+      const data = await bffPlayInfo(subjectId, seNum, epNum, 1080);
+      const ms = Date.now() - t0;
+      const streams = data?.data?.streams || [];
+      const firstUrl = streams[0]?.url || '';
+      const host = firstUrl ? new URL(firstUrl).hostname : '';
+      reportToServer({
+        tag: 'fetchMbStream/bffPlayInfo',
+        ok: streams.length > 0,
+        subjectId, ms,
+        code: data?.code,
+        message: data?.message,
+        count: streams.length,
+        host,
+        firstQuality: streams[0]?.quality,
+        firstFormat: streams[0]?.format,
+        firstUrl: firstUrl.slice(0, 200),
+      });
+      if (streams.length > 0) {
+        return {
+          source: 'bff-play-info',
+          type: streams[0]?.format?.toLowerCase()?.includes('hls') ? 'hls' : 'mp4',
+          streams: streams.map(s => ({
+            format: s.format,
+            id: s.id,
+            url: s.url,
+            quality: String(s.quality || ''),
+            size: s.size,
+            duration: s.duration,
+            codec: s.codec,
+          })),
+          dubs: [],
+          currentSubjectId: subjectId,
+        };
+      }
+    } catch (err) {
+      const ms = Date.now() - t0;
+      reportToServer({
+        tag: 'fetchMbStream/bffPlayInfo',
+        ok: false, subjectId, ms,
+        errName: err?.name,
+        errMessage: err?.message || String(err),
+      });
+    }
+  }
+  // Fallback: server-side resolution via H5
   const qs = new URLSearchParams({ subjectId });
   if (type) qs.set('type', type);
   if (se != null) qs.set('se', String(se));
