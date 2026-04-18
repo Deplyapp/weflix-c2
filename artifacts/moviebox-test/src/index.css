@@ -192,6 +192,17 @@ a[role="button"],
 .pcw-card {
   transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
   /* No `will-change` here either — see `.card-hover-lift` rationale above. */
+
+  /* Skip rendering work entirely for cards that are off-screen. With 50+
+     cards in a grid this is the single biggest scroll-smoothness win on
+     low-end mobiles: the browser only paints cards that are near the
+     viewport. `contain-intrinsic-size` tells the layout engine the
+     reserved size so off-screen cards don't cause layout shift when they
+     come into view. The width is fluid (grid column), so we only fix the
+     intrinsic *height* — aspect-ratio takes care of the poster, plus the
+     ~46px title strip below. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 280px;
 }
 @media (hover: hover) and (pointer: fine) {
   .pcw-card:hover {
