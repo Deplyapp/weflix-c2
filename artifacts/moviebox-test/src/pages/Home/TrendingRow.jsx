@@ -136,15 +136,15 @@ export default function TrendingRow({
         onMouseDown={onRowMouseDown}
         onMouseMove={onRowMouseMove}
         onMouseLeave={endRowDrag}
-        className={`flex gap-2 overflow-x-auto hide-scrollbar px-4 sm:px-6 select-none snap-x snap-proximity card-row ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-        style={{ paddingTop: 20, paddingBottom: 20, marginTop: -12, marginBottom: -12, scrollPaddingLeft: 16, scrollPaddingRight: 16 }}
+        className={`flex gap-2 overflow-x-auto hide-scrollbar px-4 sm:px-6 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        style={{ paddingTop: 20, paddingBottom: 20, marginTop: -12, marginBottom: -12 }}
       >
         {items.map((item, index) => {
           const mediaType = item.subjectType !== 1 ? 'tv' : 'movie';
           return (
             <div
               key={item.subjectId}
-              className={`shrink-0 relative self-start snap-start ${showRank ? 'pt-6 pl-2' : ''}`}
+              className={`shrink-0 relative self-start ${showRank ? 'pt-6 pl-2' : ''}`}
               style={{ width: showRank ? 165 : 135, minHeight: showRank ? 285 : 250 }}
             >
               {showRank && (

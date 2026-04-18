@@ -103,25 +103,6 @@ a[role="button"],
   to   { opacity: 1; transform: scale(1); }
 }
 
-/* Horizontal card rows: keep `touch-action: auto` (the default) so the
-   browser's own gesture detector decides whether a swipe is horizontal
-   (scroll the row) or vertical (scroll the page). We previously set
-   `pan-x` here, which blocked vertical swipes on Android entirely —
-   even cards inside lost vertical scroll because the parent restricted
-   the gesture set. The original iOS problem was caused by
-   `snap-mandatory`; switching the row to `snap-proximity` fixes that
-   without needing any `touch-action` override. We only contain the
-   horizontal rubber-band so it doesn't bleed into the page. */
-.card-row {
-  overscroll-behavior-x: contain;
-}
-
-/* Page-level: kill the rubber-band on inner scrollers so only the
-   document edges bounce — feels more iOS-native. */
-html, body {
-  overscroll-behavior-y: contain;
-}
-
 /* ───────── Scrollbars ───────── */
 .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .hide-scrollbar::-webkit-scrollbar { display: none; }
